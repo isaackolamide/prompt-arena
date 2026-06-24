@@ -4,8 +4,11 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.api.auth import send_magic_link, verify_otp
-from supabase_auth.errors import AuthApiError
+from app.api.auth import send_magic_link, verify_otp, SessionCreationError
+try:
+    from gotrue.errors import AuthApiError
+except ModuleNotFoundError:
+    from supabase_auth.errors import AuthApiError
 
 client = TestClient(app)
 
@@ -85,6 +88,11 @@ def test_verify_otp_no_session(mock_supabase):
     mock_auth_res = MagicMock()
     mock_auth_res.session = None
     mock_supabase.auth.verify_otp.return_value = mock_auth_res
+
+    # Direct function call
+    with pytest.raises(SessionCreationError) as exc_info:
+        verify_otp("user@example.com", "123456")
+    assert "Session could not be created." in str(exc_info.value)
 
     # API Endpoint call
     response = client.post("/api/auth/verify", json={"email": "user@example.com", "token": "123456"})

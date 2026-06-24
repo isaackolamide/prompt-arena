@@ -2,9 +2,16 @@ import logging
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from app.db.supabase import get_supabase_client
-from supabase_auth.errors import AuthApiError
+try:
+    from gotrue.errors import AuthApiError
+except ModuleNotFoundError:
+    from supabase_auth.errors import AuthApiError
 
 logger = logging.getLogger("app")
+
+class SessionCreationError(Exception):
+    """Exception raised when a session cannot be created from OTP verification."""
+    pass
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -52,10 +59,7 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
         })
         if not res or not res.session:
             logger.error(f"No session returned for {email} after OTP verification")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Verification failed: Session could not be created."
-            )
+            raise SessionCreationError("Session could not be created.")
         logger.info(f"OTP verification successful for email: {email}")
         return {"access_token": res.session.access_token}
     except AuthApiError as e:
@@ -91,8 +95,11 @@ async def post_verify(payload: VerifyRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Auth verification failed: {e.message}"
         )
-    except HTTPException as e:
-        raise e
+    except SessionCreationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Verification failed: {str(e)}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

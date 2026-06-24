@@ -19,7 +19,7 @@
 - Verification: `make build` and `ls -la` inside root
 - Dependencies: none
 
-### [ ] Task 1.2: Test Frameworks & CI Config (pytest & vitest)
+### [x] Task 1.2: Test Frameworks & CI Config (pytest & vitest)
 - Scope: S
 - Files: `backend/requirements.txt` (create), `backend/tests/test_dummy.py` (create), `frontend/package.json` (create), `frontend/vite.config.ts` (create), `frontend/src/tests/dummy.test.ts` (create)
 - Interfaces: produces backend pytest suite, produces frontend vitest suite
@@ -29,7 +29,7 @@
 - Dependencies: Task 1.1
 
 ### Checkpoint — Phase 1
-- [ ] Root Makefile, monorepo paths, and both test runners are fully functional.
+- [x] Root Makefile, monorepo paths, and both test runners are fully functional.
 - Verification: `make test` and `make lint` execute successfully without errors.
 
 ---

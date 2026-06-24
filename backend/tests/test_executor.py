@@ -1,4 +1,5 @@
 from backend.app.services.executor import execute_code_locally
+import requests
 
 def test_python_success():
     """Verify that a correct Python script passes assertion tests."""
@@ -134,7 +135,7 @@ def test_executor_fallback_greedy_and_entire_string():
     mock_container.wait.return_value = {"StatusCode": 0}
 
     # Case A: Greedy curly brace extraction
-    stdout_case_a = "Prefix {\"stdout\": \"ok\", \"passed\": true} suffix"
+    stdout_case_a = "Prefix {\"stdout\": \"ok\", \"passed\": true, \"test_results\": []} suffix"
     mock_container.logs.side_effect = lambda stdout, stderr: (
         stdout_case_a.encode("utf-8") if stdout else b""
     )
@@ -145,7 +146,7 @@ def test_executor_fallback_greedy_and_entire_string():
     assert res["stdout"] == "ok"
     
     # Case B: Entire string parsing fallback
-    stdout_case_b = '{"stdout": "entire", "passed": true}'
+    stdout_case_b = '{"stdout": "entire", "passed": true, "test_results": []}'
     mock_container.logs.side_effect = lambda stdout, stderr: (
         stdout_case_b.encode("utf-8") if stdout else b""
     )
@@ -228,7 +229,6 @@ def test_docker_exception_handling():
 
 def test_executor_requests_timeout_handling():
     from unittest.mock import MagicMock, patch
-    import requests.exceptions
     mock_client = MagicMock()
     mock_container = MagicMock()
     mock_client.containers.run.return_value = mock_container
@@ -321,5 +321,44 @@ def test_executor_wait_api_error():
     
     # Verify cleanup was still called
     mock_container.remove.assert_called_once_with(force=True)
+
+
+def test_executor_ignores_invalid_user_json():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 0}
+
+    # Case A: User script outputs standard printed dictionary without test_results
+    polluted_stdout_no_test_results = '{"key": "value"}\n'
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        polluted_stdout_no_test_results.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert res["stdout"] == '{"key": "value"}'
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "execution-failure"
+    assert "Failed to parse" in res["test_results"][0]["message"]
+
+    # Case B: User script outputs JSON with test_results that is not a list
+    polluted_stdout_invalid_test_results_type = '{"test_results": "not a list"}\n'
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        polluted_stdout_invalid_test_results_type.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert res["stdout"] == '{"test_results": "not a list"}'
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "execution-failure"
+    assert "Failed to parse" in res["test_results"][0]["message"]
+
 
 

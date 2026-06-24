@@ -133,7 +133,7 @@ def execute_code_locally(
             if stripped_line.startswith('{') and stripped_line.endswith('}'):
                 try:
                     candidate = json.loads(stripped_line)
-                    if isinstance(candidate, dict):
+                    if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
                         parsed_result = candidate
                         break
                 except json.JSONDecodeError:
@@ -147,7 +147,7 @@ def execute_code_locally(
                 json_candidate = stdout_str[start_idx:end_idx+1]
                 try:
                     candidate = json.loads(json_candidate)
-                    if isinstance(candidate, dict):
+                    if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
                         parsed_result = candidate
                 except json.JSONDecodeError as err:
                     logger.debug("Failed to parse JSON candidate from stdout: %s", err)
@@ -156,7 +156,7 @@ def execute_code_locally(
         if parsed_result is None:
             try:
                 candidate = json.loads(stdout_str)
-                if isinstance(candidate, dict):
+                if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
                     parsed_result = candidate
             except json.JSONDecodeError:
                 parsed_result = None

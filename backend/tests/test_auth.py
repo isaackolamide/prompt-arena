@@ -98,3 +98,22 @@ def test_verify_otp_no_session(mock_supabase):
     response = client.post("/api/auth/verify", json={"email": "user@example.com", "token": "123456"})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert "Verification failed" in response.json()["detail"]
+
+def test_send_magic_link_unexpected_error(mock_supabase):
+    # Setup mock to raise unexpected Exception
+    mock_supabase.auth.sign_in_with_otp.side_effect = Exception("Database is down")
+
+    # API Endpoint call
+    response = client.post("/api/auth/magic-link", json={"email": "user@example.com"})
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Internal server error"
+
+def test_verify_otp_unexpected_error(mock_supabase):
+    # Setup mock to raise unexpected Exception
+    mock_supabase.auth.verify_otp.side_effect = Exception("Database is down")
+
+    # API Endpoint call
+    response = client.post("/api/auth/verify", json={"email": "user@example.com", "token": "123456"})
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Internal server error"
+

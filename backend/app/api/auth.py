@@ -70,7 +70,7 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
         raise e
 
 @router.post("/magic-link", response_model=MagicLinkResponse)
-async def post_magic_link(payload: MagicLinkRequest):
+def post_magic_link(payload: MagicLinkRequest):
     try:
         result = send_magic_link(payload.email)
         return result
@@ -79,14 +79,15 @@ async def post_magic_link(payload: MagicLinkRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Auth error: {e.message}"
         )
-    except Exception as e:
+    except Exception:
+        logger.exception("Unexpected error sending magic link")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
+            detail="Internal server error"
         )
 
 @router.post("/verify", response_model=VerifyResponse)
-async def post_verify(payload: VerifyRequest):
+def post_verify(payload: VerifyRequest):
     try:
         result = verify_otp(payload.email, payload.token)
         return result
@@ -100,8 +101,9 @@ async def post_verify(payload: VerifyRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Verification failed: {str(e)}"
         )
-    except Exception as e:
+    except Exception:
+        logger.exception("Unexpected error verifying OTP")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
+            detail="Internal server error"
         )

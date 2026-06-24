@@ -54,7 +54,8 @@ create table public.profiles (
 
     -- Constraints
     constraint daily_game_count_nonnegative check (daily_game_count >= 0),
-    constraint username_length check (username is null or char_length(username) >= 3)
+    constraint username_length check (username is null or char_length(username) >= 3),
+    constraint username_format check (username is null or username ~* '^[a-zA-Z0-9_-]+$')
 );
 
 -- Enable RLS on Profiles
@@ -198,11 +199,9 @@ create policy "Allow public read access to scorecards"
 -- ==========================================
 -- INDEXES FOR QUERY OPTIMIZATION
 -- ==========================================
--- Create indexes on all foreign keys to optimize joins and RLS queries.
-create index if not exists idx_profiles_username on public.profiles(username);
+-- Create indexes on foreign keys to optimize joins and RLS queries. (Unique constraints create indexes automatically).
 create index if not exists idx_game_sessions_profile_id on public.game_sessions(profile_id);
 create index if not exists idx_game_sessions_challenge_id on public.game_sessions(challenge_id);
-create index if not exists idx_scorecards_game_session_id on public.scorecards(game_session_id);
 create index if not exists idx_scorecards_profile_id on public.scorecards(profile_id);
 create index if not exists idx_scorecards_challenge_id on public.scorecards(challenge_id);
 
@@ -217,12 +216,33 @@ begin
     new.updated_at = timezone('utc'::text, now());
     return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = pg_catalog, public;
+
+-- Helper: Prevent client-side updates to read-only profile columns (tampering checks)
+create or replace function public.prevent_profile_tampering()
+returns trigger as $$
+begin
+    -- Only restrict authenticated/anon users connecting via client APIs (PostgREST)
+    if nullif(current_setting('request.jwt.claim.role', true), '') in ('authenticated', 'anon') then
+        if new.daily_game_count is distinct from old.daily_game_count or
+           new.last_game_played_at is distinct from old.last_game_played_at or
+           new.id is distinct from old.id or
+           new.created_at is distinct from old.created_at then
+            raise exception 'Cannot modify read-only profile columns';
+        end if;
+    end if;
+    return new;
+end;
+$$ language plpgsql security definer set search_path = pg_catalog, public;
 
 -- Attach updated_at triggers
 create trigger set_profiles_updated_at
     before update on public.profiles
     for each row execute procedure public.set_updated_at();
+
+create trigger check_profiles_tampering
+    before update on public.profiles
+    for each row execute procedure public.prevent_profile_tampering();
 
 create trigger set_challenges_updated_at
     before update on public.challenges

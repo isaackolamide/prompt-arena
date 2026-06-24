@@ -28,6 +28,11 @@ build:
 		echo "Installing React frontend dependencies..."; \
 		cd frontend && npm install; \
 	fi
+	@if [ -d sandbox-lambda ]; then \
+		echo "Building sandbox-lambda container image..."; \
+		docker build -t sandbox-lambda sandbox-lambda/; \
+	fi
+
 
 test:
 	@echo "=== Running all tests ==="

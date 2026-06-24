@@ -41,6 +41,20 @@ def execute_code_locally(
             "test_results": list[dict]
         }
     """
+    if not isinstance(code, str) or not isinstance(test_suite, str):
+        return {
+            "stdout": "",
+            "stderr": "Input validation error: code and test_suite must be strings.",
+            "passed": False,
+            "test_results": [
+                {
+                    "name": "input-error",
+                    "passed": False,
+                    "message": "Input is not a string"
+                }
+            ]
+        }
+
     if len(code) > 65536 or len(test_suite) > 65536:
         return {
             "stdout": "",

@@ -394,5 +394,19 @@ def test_executor_sandbox_process_limits():
     assert called_kwargs.get("pids_limit") == 50
 
 
+def test_executor_invalid_input_types():
+    """Verify that passing None or non-string inputs returns a failure."""
+    res = execute_code_locally(code=None, language="python", test_suite="dummy")
+    assert res["passed"] is False
+    assert "Input validation error" in res["stderr"]
+    assert res["test_results"][0]["name"] == "input-error"
+
+    res = execute_code_locally(code="dummy", language="python", test_suite=None)
+    assert res["passed"] is False
+    assert "Input validation error" in res["stderr"]
+    assert res["test_results"][0]["name"] == "input-error"
+
+
+
 
 

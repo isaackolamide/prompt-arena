@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from app.db.supabase import get_supabase_client
 try:
     from gotrue.errors import AuthApiError
@@ -16,13 +16,13 @@ class SessionCreationError(Exception):
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 class MagicLinkRequest(BaseModel):
-    email: str = Field(..., description="The user's email address")
+    email: EmailStr = Field(..., description="The user's email address")
 
 class MagicLinkResponse(BaseModel):
     status: str = Field(..., description="The status of the magic link request")
 
 class VerifyRequest(BaseModel):
-    email: str = Field(..., description="The user's email address")
+    email: EmailStr = Field(..., description="The user's email address")
     token: str = Field(..., description="The OTP/token received by the user")
 
 class VerifyResponse(BaseModel):

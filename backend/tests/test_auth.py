@@ -117,3 +117,20 @@ def test_verify_otp_unexpected_error(mock_supabase):
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert response.json()["detail"] == "Internal server error"
 
+def test_send_magic_link_invalid_email():
+    # Attempting to call magic-link with invalid email format
+    response = client.post("/api/auth/magic-link", json={"email": "not-an-email"})
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    # Verify the error detail mentions the email validation failure
+    errors = response.json()["detail"]
+    assert any(err["loc"] == ["body", "email"] for err in errors)
+
+def test_verify_otp_invalid_email():
+    # Attempting to call verify with invalid email format
+    response = client.post("/api/auth/verify", json={"email": "not-an-email", "token": "123456"})
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    # Verify the error detail mentions the email validation failure
+    errors = response.json()["detail"]
+    assert any(err["loc"] == ["body", "email"] for err in errors)
+
+

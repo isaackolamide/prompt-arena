@@ -24,6 +24,26 @@ def test_detect_esm():
     assert runner.detect_esm("// import { add } from './solution';") is False
     assert runner.detect_esm("const s = 'import statement';") is False
 
+    # Comments stripping cases
+    assert runner.detect_esm(
+        "// import { add } from './solution';\n"
+        "const add = require('./solution');"
+    ) is False
+    assert runner.detect_esm(
+        "/* import { add } from './solution'; */\n"
+        "const add = require('./solution');"
+    ) is False
+    assert runner.detect_esm(
+        "/*\nimport { add } from './solution';\n*/\n"
+        "const add = require('./solution');"
+    ) is False
+    assert runner.detect_esm(
+        "// comment\nimport { add } from './solution';"
+    ) is True
+    assert runner.detect_esm(
+        "/* block comment */ import { add } from './solution';"
+    ) is True
+
 def test_format_node_error():
     # 1. Non-dict error_info
     assert runner.format_node_error("some error string") == "some error string"
@@ -180,11 +200,10 @@ def test_parse_reports_missing_file():
     assert "was not generated" in results[0]["message"]
 
 def test_run_command_timeout():
-    # Set starting time
-    runner.START_TIME = time.time()
-    
-    # We should run a command that takes longer than the remaining timeout
-    # e.g., run sleep 2 with dynamic remaining timeout of 0.1s
-    exit_code, stdout, stderr = runner.run_command(["sleep", "2"], cwd=".", timeout_limit=0.1)
+    # We should run a command that takes longer than the timeout
+    # e.g., run sleep 2 with a timeout of 0.1s
+    exit_code, stdout, stderr = runner.run_command(
+        ["sleep", "2"], cwd=".", timeout=0.1
+    )
     assert exit_code == -1
     assert "timed out" in stderr

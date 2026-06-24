@@ -11,23 +11,16 @@ from typing import Dict, List, Any, Tuple, Optional
 SANDBOX_DIR = "/tmp/sandbox"
 TIMEOUT_LIMIT = 5  # seconds
 
-# Global start time for dynamic timeout tracking
-START_TIME: Optional[float] = None
+# No global state to prevent test pollution
 
-def run_command(cmd: List[str], cwd: str, timeout_limit: float = TIMEOUT_LIMIT) -> Tuple[int, str, str]:
-    """Runs a command in a subprocess with dynamic remaining timeout and captures stdout/stderr.
+def run_command(cmd: List[str], cwd: str, timeout: float) -> Tuple[int, str, str]:
+    """Runs a command in a subprocess with the given timeout and captures stdout/stderr.
     
     Returns:
         A tuple of (exit_code, stdout, stderr).
     """
-    global START_TIME
-    if START_TIME is None:
-        START_TIME = time.time()
-        
-    elapsed = time.time() - START_TIME
-    remaining = timeout_limit - elapsed
-    if remaining <= 0:
-        return -1, "", f"Execution timed out after {timeout_limit} seconds."
+    if timeout <= 0:
+        return -1, "", f"Execution timed out after {TIMEOUT_LIMIT} seconds."
         
     try:
         res = subprocess.run(
@@ -35,7 +28,7 @@ def run_command(cmd: List[str], cwd: str, timeout_limit: float = TIMEOUT_LIMIT) 
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=remaining,
+            timeout=timeout,
             errors="replace"
         )
         return res.returncode, res.stdout, res.stderr
@@ -44,7 +37,7 @@ def run_command(cmd: List[str], cwd: str, timeout_limit: float = TIMEOUT_LIMIT) 
         stdout = e.stdout if e.stdout else ""
         stderr = e.stderr if e.stderr else ""
         if not stderr:
-            stderr = f"Execution timed out after {timeout_limit} seconds."
+            stderr = f"Execution timed out after {TIMEOUT_LIMIT} seconds."
         return -1, stdout, stderr
     except Exception as e:
         return -2, "", str(e)
@@ -122,11 +115,16 @@ def parse_pytest_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]]:
 
 def detect_esm(code: str) -> bool:
     """Uses a regex to check for top-level import/export statements to detect ES Modules."""
+    # Strip block comments /* ... */
+    clean_code = re.sub(r"/\*.*?\*/", "", code, flags=re.DOTALL)
+    # Strip single line comments // ...
+    clean_code = re.sub(r"//[^\r\n]*", "", clean_code)
+
     esm_pattern = re.compile(
         r"^\s*(?:import\s+(?:[\w*$\s,{}]+from\s+)?['\"]|import\s*\(|import\s+['\"]|export\s+(?:default|const|let|var|class|function|async|\{))",
         re.MULTILINE
     )
-    return bool(esm_pattern.search(code))
+    return bool(esm_pattern.search(clean_code))
 
 def format_node_error(error_info: Dict[str, Any]) -> str:
     """Formats Node.js test runner error details into a readable string."""
@@ -244,8 +242,7 @@ def parse_node_json_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]
     return overall_passed, test_results
 
 def main() -> None:
-    global START_TIME
-    START_TIME = time.time()
+    start_time = time.time()
 
     # Set default values
     stdout = ""
@@ -293,13 +290,21 @@ def main() -> None:
                 f"--json-report-file={report_file}",
                 test_file
             ]
-            exit_code, stdout, stderr = run_command(cmd, SANDBOX_DIR)
+            elapsed = time.time() - start_time
+            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            exit_code, stdout, stderr = run_command(
+                cmd, SANDBOX_DIR, remaining
+            )
             
             # Pytest exit code 5 means no tests were collected.
             # In that case, we fall back to running the test suite as a direct python script.
             if exit_code == 5:
                 # Fallback to direct python run
-                exit_code, stdout, stderr = run_command(["python3", test_file], SANDBOX_DIR)
+                elapsed = time.time() - start_time
+                remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+                exit_code, stdout, stderr = run_command(
+                    ["python3", test_file], SANDBOX_DIR, remaining
+                )
                 passed = (exit_code == 0)
                 test_results = [{
                     "name": "test_suite.py",
@@ -331,7 +336,11 @@ def main() -> None:
                     }]
         else:
             # No test suite, run solution.py directly
-            exit_code, stdout, stderr = run_command(["python3", solution_file], SANDBOX_DIR)
+            elapsed = time.time() - start_time
+            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            exit_code, stdout, stderr = run_command(
+                ["python3", solution_file], SANDBOX_DIR, remaining
+            )
             passed = (exit_code == 0)
             test_results = [{
                 "name": "solution.py",
@@ -358,19 +367,24 @@ def main() -> None:
             with open(test_file, "w", encoding="utf-8") as f:
                 f.write(test_suite)
                 
-            # Run node test runner with JSON reporter
+            # Run node test runner with custom reporter
             report_file = os.path.join(SANDBOX_DIR, "report.json")
             cmd = [
                 "node",
                 "--test",
-                "--test-reporter=json",
+                "--test-reporter=/app/reporter.cjs",
                 f"--test-reporter-destination={report_file}",
                 test_file
             ]
-            exit_code, stdout, stderr = run_command(cmd, SANDBOX_DIR)
+            elapsed = time.time() - start_time
+            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            exit_code, stdout, stderr = run_command(
+                cmd, SANDBOX_DIR, remaining
+            )
             
             # Parse JSON report output
-            passed, test_results = parse_node_json_report(report_file)
+            parsed_passed, test_results = parse_node_json_report(report_file)
+            passed = parsed_passed and (exit_code == 0)
             
             # If no tests were run (empty test_results) and exit_code is non-zero,
             # or if it was a timeout / execution error, report it
@@ -379,8 +393,14 @@ def main() -> None:
                 msg = stderr if stderr else stdout
                 if exit_code == -1:
                     msg = f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
+                
+                name = (
+                    "test_suite.js (no tests collected)"
+                    if exit_code == 0
+                    else "test_suite.js (execution error)"
+                )
                 test_results = [{
-                    "name": "test_suite.js (execution error)",
+                    "name": name,
                     "passed": passed,
                     "message": msg
                 }]
@@ -394,7 +414,11 @@ def main() -> None:
                 })
         else:
             # No test suite, run solution.js directly
-            exit_code, stdout, stderr = run_command(["node", solution_file], SANDBOX_DIR)
+            elapsed = time.time() - start_time
+            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            exit_code, stdout, stderr = run_command(
+                ["node", solution_file], SANDBOX_DIR, remaining
+            )
             passed = (exit_code == 0)
             test_results = [{
                 "name": "solution.js",

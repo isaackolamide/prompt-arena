@@ -23,12 +23,12 @@ WORKDIR /app
 # Copy sandbox runner script
 COPY runner.py /app/runner.py
 
-# Create a custom 'json' reporter package in node_modules to support --test-reporter=json
-RUN python -c 'import os; os.makedirs("/node_modules/json", exist_ok=True); open("/node_modules/json/package.json", "w").write("{\"name\": \"json\", \"version\": \"1.0.0\", \"main\": \"index.js\"}"); open("/node_modules/json/index.js", "w").write("async function* customReporter(source) { for await (const event of source) { yield JSON.stringify(event) + \"\\n\"; } }; module.exports = customReporter; module.exports.default = customReporter;\n")'
+# Create a custom CommonJS test reporter for Node.js
+RUN echo "async function* customReporter(source) { for await (const event of source) { yield JSON.stringify(event) + '\\n'; } }; module.exports = customReporter; module.exports.default = customReporter;" > /app/reporter.cjs
 
 RUN groupadd -g 1000 sandbox && useradd -r -u 1000 -g sandbox sandbox \
     && mkdir -p /tmp/sandbox \
-    && chown -R sandbox:sandbox /tmp/sandbox /app /node_modules
+    && chown -R sandbox:sandbox /tmp/sandbox /app
 USER sandbox
 
 # Set entrypoint to run the runner script

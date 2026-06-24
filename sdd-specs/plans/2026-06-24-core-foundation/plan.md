@@ -45,7 +45,7 @@
 - Verification: Validate SQL schema against a local PostgreSQL instance.
 - Dependencies: Task 1.2
 
-### [ ] Task 2.2: FastAPI Boilerplate, DB Client & Magic Link Auth
+### [x] Task 2.2: FastAPI Boilerplate, DB Client & Magic Link Auth
 - Scope: M
 - Files: `backend/app/main.py` (create), `backend/app/core/config.py` (create), `backend/app/db/supabase.py` (create), `backend/app/api/auth.py` (create), `backend/tests/test_auth.py` (create)
 - Interfaces:
@@ -59,7 +59,7 @@
 - Dependencies: Task 2.1
 
 ### Checkpoint — Phase 2
-- [ ] Database schema is defined, FastAPI application boots, and auth endpoints pass tests with a mocked Supabase client.
+- [x] Database schema is defined, FastAPI application boots, and auth endpoints pass tests with a mocked Supabase client.
 - Verification: `pytest backend/tests/test_auth.py` passes successfully.
 
 ---

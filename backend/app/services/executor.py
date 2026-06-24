@@ -11,7 +11,7 @@ def execute_code_locally(
     code: str,
     language: str,
     test_suite: str
-) -> Dict[str, Union[str, bool, List[Dict[str, str]]]]:
+) -> Dict[str, Union[str, bool, List[Dict[str, Union[str, bool]]]]]:
     """Executes the given code and test suite in a local Docker container sandbox.
 
     Args:
@@ -30,7 +30,7 @@ def execute_code_locally(
     """
     client = docker.from_env()
     container = None
-    start_time = time.time()
+    start_time = time.monotonic()
 
     try:
         container = client.containers.run(
@@ -41,6 +41,8 @@ def execute_code_locally(
                 "TEST_SUITE": test_suite
             },
             network_mode="none",
+            mem_limit="256m",
+            nano_cpus=1000000000,
             detach=True
         )
 
@@ -48,7 +50,7 @@ def execute_code_locally(
             wait_result = container.wait(timeout=5)
             exit_code = wait_result.get("StatusCode", 0)
         except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as timeout_err:
-            duration = time.time() - start_time
+            duration = time.monotonic() - start_time
             logger.warning(
                 "Sandbox container timed out after %.2f seconds: %s",
                 duration, timeout_err
@@ -89,7 +91,7 @@ def execute_code_locally(
             }
 
         # Successful container.wait run
-        duration = time.time() - start_time
+        duration = time.monotonic() - start_time
         try:
             stdout_bytes = container.logs(stdout=True, stderr=False)
             stderr_bytes = container.logs(stdout=False, stderr=True)

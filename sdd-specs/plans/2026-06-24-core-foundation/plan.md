@@ -36,7 +36,7 @@
 
 ## Phase 2: Database Schema & FastAPI Boilerplate
 
-### [ ] Task 2.1: Supabase DB Schema Setup
+### [x] Task 2.1: Supabase DB Schema Setup
 - Scope: S
 - Files: `backend/app/db/schema.sql` (create)
 - Interfaces: produces SQL migration script for Supabase tables

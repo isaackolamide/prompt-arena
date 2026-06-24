@@ -88,7 +88,7 @@
 - Dependencies: Task 3.1
 
 ### Checkpoint — Phase 3
-- [ ] Local Docker-based executor can run Python and Node.js code securely within local boundaries.
+- [x] Local Docker-based executor can run Python and Node.js code securely within local boundaries.
 - Verification: `pytest backend/tests/test_executor.py` passes successfully.
 
 ---

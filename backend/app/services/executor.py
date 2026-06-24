@@ -10,6 +10,7 @@ logger = logging.getLogger("app")
 
 _docker_client = None
 _docker_client_lock = threading.Lock()
+_execution_semaphore = threading.BoundedSemaphore(4)
 
 def get_docker_client() -> docker.DockerClient:
     global _docker_client
@@ -40,47 +41,96 @@ def execute_code_locally(
             "test_results": list[dict]
         }
     """
-    container = None
-    try:
-        client = get_docker_client()
-        start_time = time.monotonic()
-        container = client.containers.run(
-            image="sandbox-lambda",
-            environment={
-                "LANGUAGE": language,
-                "CODE": code,
-                "TEST_SUITE": test_suite
-            },
-            network_mode="none",
-            mem_limit="256m",
-            nano_cpus=1000000000,
-            detach=True
-        )
+    if len(code) > 65536 or len(test_suite) > 65536:
+        return {
+            "stdout": "",
+            "stderr": "Input size limit exceeded: code and test_suite must each be under 64KB.",
+            "passed": False,
+            "test_results": [
+                {
+                    "name": "input-error",
+                    "passed": False,
+                    "message": "Input size limit exceeded (64KB)"
+                }
+            ]
+        }
 
+    with _execution_semaphore:
+        container = None
         try:
-            wait_result = container.wait(timeout=5)
-            exit_code = wait_result.get("StatusCode", 0)
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as timeout_err:
-            duration = time.monotonic() - start_time
-            logger.warning(
-                "Sandbox container timed out after %.2f seconds: %s",
-                duration, timeout_err
+            client = get_docker_client()
+            start_time = time.monotonic()
+            container = client.containers.run(
+                image="sandbox-lambda",
+                environment={
+                    "LANGUAGE": language,
+                    "CODE": code,
+                    "TEST_SUITE": test_suite
+                },
+                network_mode="none",
+                mem_limit="256m",
+                nano_cpus=1000000000,
+                pids_limit=50,
+                detach=True
             )
-            # Try to kill container immediately
-            try:
-                container.kill()
-            except docker.errors.DockerException:
-                raise
-            except Exception as kill_err:
-                logger.error("Error killing container after timeout: %s", kill_err)
 
-            # Read whatever logs exist
+            try:
+                wait_result = container.wait(timeout=5)
+                exit_code = wait_result.get("StatusCode", 0)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as timeout_err:
+                duration = time.monotonic() - start_time
+                logger.warning(
+                    "Sandbox container timed out after %.2f seconds: %s",
+                    duration, timeout_err
+                )
+                # Try to kill container immediately
+                try:
+                    container.kill()
+                except docker.errors.DockerException:
+                    raise
+                except Exception as kill_err:
+                    logger.error("Error killing container after timeout: %s", kill_err)
+
+                # Read whatever logs exist
+                try:
+                    stdout_bytes = container.logs(stdout=True, stderr=False)
+                    stderr_bytes = container.logs(stdout=False, stderr=True)
+                except docker.errors.DockerException:
+                    raise
+                except Exception:
+                    stdout_bytes = b""
+                    stderr_bytes = b""
+
+                stdout_str = stdout_bytes.decode("utf-8", errors="replace").strip()
+                stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+
+                logger.info(
+                    "Sandbox execution timed out. Duration: %.2fs, ExitCode: -1, Stdout: %s, Stderr: %s",
+                    duration, stdout_str, stderr_str
+                )
+
+                return {
+                    "stdout": stdout_str,
+                    "stderr": stderr_str or "Execution timed out after 5 seconds.",
+                    "passed": False,
+                    "test_results": [
+                        {
+                            "name": "timeout",
+                            "passed": False,
+                            "message": "Execution timed out (limit: 5s)"
+                        }
+                    ]
+                }
+
+            # Successful container.wait run
+            duration = time.monotonic() - start_time
             try:
                 stdout_bytes = container.logs(stdout=True, stderr=False)
                 stderr_bytes = container.logs(stdout=False, stderr=True)
             except docker.errors.DockerException:
                 raise
-            except Exception:
+            except Exception as logs_err:
+                logger.error("Error retrieving logs: %s", logs_err)
                 stdout_bytes = b""
                 stderr_bytes = b""
 
@@ -88,131 +138,98 @@ def execute_code_locally(
             stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
 
             logger.info(
-                "Sandbox execution timed out. Duration: %.2fs, ExitCode: -1, Stdout: %s, Stderr: %s",
-                duration, stdout_str, stderr_str
+                "Sandbox execution completed. ExitCode: %d, Duration: %.2fs, Stdout: %s, Stderr: %s",
+                exit_code, duration, stdout_str, stderr_str
             )
 
-            return {
-                "stdout": stdout_str,
-                "stderr": stderr_str or "Execution timed out after 5 seconds.",
-                "passed": False,
-                "test_results": [
-                    {
-                        "name": "timeout",
-                        "passed": False,
-                        "message": "Execution timed out (limit: 5s)"
-                    }
-                ]
-            }
+            parsed_result = None
+            # 1. Search for a valid JSON dictionary from the bottom of stdout_str line-by-line
+            lines = stdout_str.splitlines()
+            for line in reversed(lines):
+                stripped_line = line.strip()
+                if stripped_line.startswith('{') and stripped_line.endswith('}'):
+                    try:
+                        candidate = json.loads(stripped_line)
+                        if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
+                            parsed_result = candidate
+                            break
+                    except json.JSONDecodeError:
+                        pass
 
-        # Successful container.wait run
-        duration = time.monotonic() - start_time
-        try:
-            stdout_bytes = container.logs(stdout=True, stderr=False)
-            stderr_bytes = container.logs(stdout=False, stderr=True)
-        except docker.errors.DockerException:
-            raise
-        except Exception as logs_err:
-            logger.error("Error retrieving logs: %s", logs_err)
-            stdout_bytes = b""
-            stderr_bytes = b""
+            # 2. Fallback to greedy curly brace extraction
+            if parsed_result is None:
+                start_idx = stdout_str.find('{')
+                end_idx = stdout_str.rfind('}')
+                if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                    json_candidate = stdout_str[start_idx:end_idx+1]
+                    try:
+                        candidate = json.loads(json_candidate)
+                        if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
+                            parsed_result = candidate
+                    except json.JSONDecodeError as err:
+                        logger.debug("Failed to parse JSON candidate from stdout: %s", err)
 
-        stdout_str = stdout_bytes.decode("utf-8", errors="replace").strip()
-        stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
-
-        logger.info(
-            "Sandbox execution completed. ExitCode: %d, Duration: %.2fs, Stdout: %s, Stderr: %s",
-            exit_code, duration, stdout_str, stderr_str
-        )
-
-        parsed_result = None
-        # 1. Search for a valid JSON dictionary from the bottom of stdout_str line-by-line
-        lines = stdout_str.splitlines()
-        for line in reversed(lines):
-            stripped_line = line.strip()
-            if stripped_line.startswith('{') and stripped_line.endswith('}'):
+            # 3. Fallback to parsing entire stdout_str
+            if parsed_result is None:
                 try:
-                    candidate = json.loads(stripped_line)
+                    candidate = json.loads(stdout_str)
                     if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
                         parsed_result = candidate
-                        break
                 except json.JSONDecodeError:
-                    pass
+                    parsed_result = None
 
-        # 2. Fallback to greedy curly brace extraction
-        if parsed_result is None:
-            start_idx = stdout_str.find('{')
-            end_idx = stdout_str.rfind('}')
-            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-                json_candidate = stdout_str[start_idx:end_idx+1]
-                try:
-                    candidate = json.loads(json_candidate)
-                    if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
-                        parsed_result = candidate
-                except json.JSONDecodeError as err:
-                    logger.debug("Failed to parse JSON candidate from stdout: %s", err)
+            if parsed_result is not None and isinstance(parsed_result, dict):
+                # Ensure test_results is a list
+                raw_results = parsed_result.get("test_results")
+                if not isinstance(raw_results, list):
+                    raw_results = []
 
-        # 3. Fallback to parsing entire stdout_str
-        if parsed_result is None:
-            try:
-                candidate = json.loads(stdout_str)
-                if isinstance(candidate, dict) and isinstance(candidate.get("test_results"), list):
-                    parsed_result = candidate
-            except json.JSONDecodeError:
-                parsed_result = None
+                sanitized_results = []
+                for res in raw_results:
+                    if isinstance(res, dict):
+                        sanitized_results.append({
+                            "name": str(res.get("name", "")),
+                            "passed": bool(res.get("passed", False)),
+                            "message": str(res.get("message", ""))
+                        })
 
-        if parsed_result is not None and isinstance(parsed_result, dict):
-            # Ensure test_results is a list
-            raw_results = parsed_result.get("test_results")
-            if not isinstance(raw_results, list):
-                raw_results = []
-
-            sanitized_results = []
-            for res in raw_results:
-                if isinstance(res, dict):
-                    sanitized_results.append({
-                        "name": str(res.get("name", "")),
-                        "passed": bool(res.get("passed", False)),
-                        "message": str(res.get("message", ""))
-                    })
-
+                return {
+                    "stdout": str(parsed_result.get("stdout", "")),
+                    "stderr": str(parsed_result.get("stderr", "")),
+                    "passed": bool(parsed_result.get("passed", False)),
+                    "test_results": sanitized_results
+                }
+            else:
+                fallback_msg = "Failed to parse test execution output JSON" if exit_code == 0 else f"Execution failed with exit status {exit_code}"
+                return {
+                    "stdout": stdout_str,
+                    "stderr": stderr_str,
+                    "passed": False,
+                    "test_results": [
+                        {
+                            "name": "execution-failure",
+                            "passed": False,
+                            "message": stderr_str or fallback_msg
+                        }
+                    ]
+                }
+        except docker.errors.DockerException as docker_err:
+            logger.error("Docker execution exception: %s", docker_err)
             return {
-                "stdout": str(parsed_result.get("stdout", "")),
-                "stderr": str(parsed_result.get("stderr", "")),
-                "passed": bool(parsed_result.get("passed", False)),
-                "test_results": sanitized_results
-            }
-        else:
-            fallback_msg = "Failed to parse test execution output JSON" if exit_code == 0 else f"Execution failed with exit status {exit_code}"
-            return {
-                "stdout": stdout_str,
-                "stderr": stderr_str,
+                "stdout": "",
+                "stderr": f"Docker execution error: {str(docker_err)}",
                 "passed": False,
                 "test_results": [
                     {
-                        "name": "execution-failure",
+                        "name": "docker-error",
                         "passed": False,
-                        "message": stderr_str or fallback_msg
+                        "message": str(docker_err)
                     }
                 ]
             }
-    except docker.errors.DockerException as docker_err:
-        logger.error("Docker execution exception: %s", docker_err)
-        return {
-            "stdout": "",
-            "stderr": f"Docker execution error: {str(docker_err)}",
-            "passed": False,
-            "test_results": [
-                {
-                    "name": "docker-error",
-                    "passed": False,
-                    "message": str(docker_err)
-                }
-            ]
-        }
-    finally:
-        if container is not None:
-            try:
-                container.remove(force=True)
-            except Exception as rm_err:
-                logger.error("Error removing sandbox container: %s", rm_err)
+        finally:
+            if container is not None:
+                try:
+                    container.remove(force=True)
+                except Exception as rm_err:
+                    logger.error("Error removing sandbox container: %s", rm_err)

@@ -9,6 +9,22 @@ except ModuleNotFoundError:
 
 logger = logging.getLogger("app")
 
+def mask_email(email: str) -> str:
+    """
+    Masks user email (e.g. user@example.com -> u***r@example.com) to prevent writing plaintext PII in logs.
+    """
+    if not email or "@" not in email:
+        return email
+    try:
+        local_part, domain = email.split("@", 1)
+        if len(local_part) <= 2:
+            masked_local = local_part[0] + "*" * (len(local_part) - 1)
+        else:
+            masked_local = local_part[0] + "*" * (len(local_part) - 2) + local_part[-1]
+        return f"{masked_local}@{domain}"
+    except Exception:
+        return email
+
 class SessionCreationError(Exception):
     """Exception raised when a session cannot be created from OTP verification."""
     pass
@@ -32,24 +48,24 @@ def send_magic_link(email: str) -> dict[str, str]:
     """
     Sends a magic link to the user's email using Supabase Auth.
     """
-    logger.info(f"Attempting to send magic link to email: {email}")
+    logger.info(f"Attempting to send magic link to email: {mask_email(email)}")
     client = get_supabase_client()
     try:
         client.auth.sign_in_with_otp({"email": email})
-        logger.info(f"Magic link sent successfully to email: {email}")
+        logger.info(f"Magic link sent successfully to email: {mask_email(email)}")
         return {"status": "success"}
     except AuthApiError as e:
-        logger.error(f"Failed to send magic link via Supabase Auth for {email}: {e}")
+        logger.error(f"Failed to send magic link via Supabase Auth for {mask_email(email)}: {e}")
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error sending magic link for {email}: {e}")
+        logger.error(f"Unexpected error sending magic link for {mask_email(email)}: {e}")
         raise e
 
 def verify_otp(email: str, token: str) -> dict[str, str]:
     """
     Verifies the OTP token for the user's email using Supabase Auth.
     """
-    logger.info(f"Attempting to verify OTP for email: {email}")
+    logger.info(f"Attempting to verify OTP for email: {mask_email(email)}")
     client = get_supabase_client()
     try:
         res = client.auth.verify_otp({
@@ -58,15 +74,15 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
             "type": "magiclink"
         })
         if not res or not res.session:
-            logger.error(f"No session returned for {email} after OTP verification")
+            logger.error(f"No session returned for {mask_email(email)} after OTP verification")
             raise SessionCreationError("Session could not be created.")
-        logger.info(f"OTP verification successful for email: {email}")
+        logger.info(f"OTP verification successful for email: {mask_email(email)}")
         return {"access_token": res.session.access_token}
     except AuthApiError as e:
-        logger.error(f"Failed to verify OTP via Supabase Auth for {email}: {e}")
+        logger.error(f"Failed to verify OTP via Supabase Auth for {mask_email(email)}: {e}")
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error verifying OTP for {email}: {e}")
+        logger.error(f"Unexpected error verifying OTP for {mask_email(email)}: {e}")
         raise e
 
 @router.post("/magic-link", response_model=MagicLinkResponse)

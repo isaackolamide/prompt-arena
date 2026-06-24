@@ -361,4 +361,38 @@ def test_executor_ignores_invalid_user_json():
     assert "Failed to parse" in res["test_results"][0]["message"]
 
 
+def test_executor_input_size_limits():
+    """Verify that input size checks trigger failure when code or test_suite is > 64KB."""
+    # 64KB is 65536 bytes/chars. Let's make code exactly 65537 chars.
+    large_code = "a" * 65537
+    res = execute_code_locally(code=large_code, language="python", test_suite="dummy")
+    assert res["passed"] is False
+    assert "Input size limit exceeded" in res["stderr"]
+    assert res["test_results"][0]["name"] == "input-error"
+
+    large_test_suite = "b" * 65537
+    res = execute_code_locally(code="dummy", language="python", test_suite=large_test_suite)
+    assert res["passed"] is False
+    assert "Input size limit exceeded" in res["stderr"]
+    assert res["test_results"][0]["name"] == "input-error"
+
+
+def test_executor_sandbox_process_limits():
+    """Verify that containers.run is called with pids_limit=50."""
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 0}
+    mock_container.logs.return_value = b'{"passed": true, "test_results": []}'
+
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        execute_code_locally(code="print(1)", language="python", test_suite="dummy")
+
+    # Assert that client.containers.run was called with pids_limit=50
+    called_args, called_kwargs = mock_client.containers.run.call_args
+    assert called_kwargs.get("pids_limit") == 50
+
+
+
 

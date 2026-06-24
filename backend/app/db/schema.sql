@@ -145,14 +145,6 @@ create policy "Allow users to view their own game sessions"
     on public.game_sessions for select 
     using (auth.uid() = profile_id);
 
-create policy "Allow users to start their own game sessions" 
-    on public.game_sessions for insert 
-    with check (auth.uid() = profile_id);
-
-create policy "Allow users to update their own game sessions" 
-    on public.game_sessions for update 
-    using (auth.uid() = profile_id);
-
 -- ==========================================
 -- 4. SCORECARDS TABLE
 -- ==========================================
@@ -202,16 +194,6 @@ alter table public.scorecards enable row level security;
 create policy "Allow public read access to scorecards" 
     on public.scorecards for select 
     using (true);
-
-create policy "Allow users to insert their own scorecards" 
-    on public.scorecards for insert 
-    with check (
-        exists (
-            select 1 from public.game_sessions
-            where game_sessions.id = game_session_id
-              and game_sessions.profile_id = auth.uid()
-        )
-    );
 
 -- ==========================================
 -- INDEXES FOR QUERY OPTIMIZATION
@@ -268,7 +250,7 @@ begin
     );
     return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
     after insert on auth.users

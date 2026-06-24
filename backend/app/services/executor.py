@@ -40,11 +40,10 @@ def execute_code_locally(
             "test_results": list[dict]
         }
     """
-    client = get_docker_client()
     container = None
-    start_time = time.monotonic()
-
     try:
+        client = get_docker_client()
+        start_time = time.monotonic()
         container = client.containers.run(
             image="sandbox-lambda",
             environment={
@@ -61,7 +60,7 @@ def execute_code_locally(
         try:
             wait_result = container.wait(timeout=5)
             exit_code = wait_result.get("StatusCode", 0)
-        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as timeout_err:
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as timeout_err:
             duration = time.monotonic() - start_time
             logger.warning(
                 "Sandbox container timed out after %.2f seconds: %s",
@@ -178,6 +177,7 @@ def execute_code_locally(
                 "test_results": sanitized_results
             }
         else:
+            fallback_msg = "Failed to parse test execution output JSON" if exit_code == 0 else f"Execution failed with exit status {exit_code}"
             return {
                 "stdout": stdout_str,
                 "stderr": stderr_str,
@@ -186,11 +186,24 @@ def execute_code_locally(
                     {
                         "name": "execution-failure",
                         "passed": False,
-                        "message": stderr_str or f"Execution failed with exit status {exit_code}"
+                        "message": stderr_str or fallback_msg
                     }
                 ]
             }
-
+    except docker.errors.DockerException as docker_err:
+        logger.error("Docker execution exception: %s", docker_err)
+        return {
+            "stdout": "",
+            "stderr": f"Docker execution error: {str(docker_err)}",
+            "passed": False,
+            "test_results": [
+                {
+                    "name": "docker-error",
+                    "passed": False,
+                    "message": str(docker_err)
+                }
+            ]
+        }
     finally:
         if container is not None:
             try:

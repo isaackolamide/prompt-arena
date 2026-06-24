@@ -205,3 +205,94 @@ def test_get_docker_client_thread_safety():
         # from_env should only be called once
         mock_from_env.assert_called_once()
 
+
+def test_docker_exception_handling():
+    from unittest.mock import MagicMock, patch
+    import docker.errors
+    
+    mock_client = MagicMock()
+    # Mock containers.run to raise DockerException
+    mock_client.containers.run.side_effect = docker.errors.DockerException("Mocked Docker error")
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="print('hello')", language="python", test_suite="")
+        
+    assert res["passed"] is False
+    assert "Mocked Docker error" in res["stderr"]
+    assert "Docker execution error:" in res["stderr"]
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "docker-error"
+    assert res["test_results"][0]["passed"] is False
+    assert "Mocked Docker error" in res["test_results"][0]["message"]
+
+
+def test_executor_requests_timeout_handling():
+    from unittest.mock import MagicMock, patch
+    import requests.exceptions
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    
+    mock_container.wait.side_effect = requests.exceptions.Timeout("Connection timed out")
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        b"mocked stdout logs" if stdout else b"mocked stderr logs"
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert res["stdout"] == "mocked stdout logs"
+    assert res["stderr"] == "mocked stderr logs"
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "timeout"
+    assert res["test_results"][0]["message"] == "Execution timed out (limit: 5s)"
+    mock_container.kill.assert_called_once()
+
+
+def test_executor_parsing_failure_exit_0_empty_stderr():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 0}
+
+    stdout_invalid = "This is not json at all"
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        stdout_invalid.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert res["stdout"] == "This is not json at all"
+    assert res["stderr"] == ""
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "execution-failure"
+    assert res["test_results"][0]["message"] == "Failed to parse test execution output JSON"
+
+
+def test_executor_parsing_failure_exit_non_zero_empty_stderr():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 127}
+
+    stdout_invalid = "This is not json at all"
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        stdout_invalid.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert res["stdout"] == "This is not json at all"
+    assert res["stderr"] == ""
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "execution-failure"
+    assert res["test_results"][0]["message"] == "Execution failed with exit status 127"
+
+

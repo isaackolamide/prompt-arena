@@ -5,11 +5,11 @@
 **Goal**: Establish the monorepo structure, database schemas, local sandbox emulator, and basic auth.
 
 ### Milestones
-- [ ] Establish root `Makefile` and setup environment configuration patterns
-- [ ] Design and apply the Supabase database schema (users, challenges, sessions, scorecards)
-- [ ] Build FastAPI server boilerplate with Supabase connectivity and Magic Link auth endpoints
-- [ ] Create a local Docker-based executor for test-running python/node snippets before integrating Lambda
-- [ ] Setup unit test frameworks (`pytest` and `vitest`) with basic test execution pipelines
+- [x] Establish root `Makefile` and setup environment configuration patterns
+- [x] Design and apply the Supabase database schema (users, challenges, sessions, scorecards)
+- [x] Build FastAPI server boilerplate with Supabase connectivity and Magic Link auth endpoints
+- [x] Create a local Docker-based executor for test-running python/node snippets before integrating Lambda
+- [x] Setup unit test frameworks (`pytest` and `vitest`) with basic test execution pipelines
 
 **Dependencies**: Supabase database setup
 

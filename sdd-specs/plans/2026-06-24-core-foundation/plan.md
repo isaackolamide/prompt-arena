@@ -76,7 +76,7 @@
 - Verification: `docker build -t sandbox-lambda sandbox-lambda/`
 - Dependencies: Task 1.2
 
-### [ ] Task 3.2: FastAPI Local Sandbox Executor Service
+### [x] Task 3.2: FastAPI Local Sandbox Executor Service
 - Scope: M
 - Files: `backend/app/services/executor.py` (create), `backend/tests/test_executor.py` (create)
 - Interfaces:

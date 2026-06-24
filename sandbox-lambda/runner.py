@@ -4,25 +4,39 @@ import json
 import subprocess
 import re
 import shutil
+import time
 from typing import Dict, List, Any, Tuple, Optional
 
 # Constants
 SANDBOX_DIR = "/tmp/sandbox"
 TIMEOUT_LIMIT = 5  # seconds
 
-def run_command(cmd: List[str], cwd: str, timeout: int = TIMEOUT_LIMIT) -> Tuple[int, str, str]:
-    """Runs a command in a subprocess with a timeout and captures stdout/stderr.
+# Global start time for dynamic timeout tracking
+START_TIME: Optional[float] = None
+
+def run_command(cmd: List[str], cwd: str, timeout_limit: float = TIMEOUT_LIMIT) -> Tuple[int, str, str]:
+    """Runs a command in a subprocess with dynamic remaining timeout and captures stdout/stderr.
     
     Returns:
         A tuple of (exit_code, stdout, stderr).
     """
+    global START_TIME
+    if START_TIME is None:
+        START_TIME = time.time()
+        
+    elapsed = time.time() - START_TIME
+    remaining = timeout_limit - elapsed
+    if remaining <= 0:
+        return -1, "", f"Execution timed out after {timeout_limit} seconds."
+        
     try:
         res = subprocess.run(
             cmd,
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=remaining,
+            errors="replace"
         )
         return res.returncode, res.stdout, res.stderr
     except subprocess.TimeoutExpired as e:
@@ -30,7 +44,7 @@ def run_command(cmd: List[str], cwd: str, timeout: int = TIMEOUT_LIMIT) -> Tuple
         stdout = e.stdout if e.stdout else ""
         stderr = e.stderr if e.stderr else ""
         if not stderr:
-            stderr = f"Execution timed out after {timeout} seconds."
+            stderr = f"Execution timed out after {timeout_limit} seconds."
         return -1, stdout, stderr
     except Exception as e:
         return -2, "", str(e)
@@ -106,8 +120,56 @@ def parse_pytest_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]]:
         
     return overall_passed, test_results
 
-def parse_tap_output(tap_text: str) -> Tuple[bool, List[Dict[str, Any]]]:
-    """Parses TAP format output from node test runner, capturing preceding comments.
+def detect_esm(code: str) -> bool:
+    """Uses a regex to check for top-level import/export statements to detect ES Modules."""
+    esm_pattern = re.compile(
+        r"^\s*(?:import\s+(?:[\w*$\s,{}]+from\s+)?['\"]|import\s*\(|import\s+['\"]|export\s+(?:default|const|let|var|class|function|async|\{))",
+        re.MULTILINE
+    )
+    return bool(esm_pattern.search(code))
+
+def format_node_error(error_info: Dict[str, Any]) -> str:
+    """Formats Node.js test runner error details into a readable string."""
+    if not isinstance(error_info, dict):
+        return str(error_info) if error_info else "Test failed"
+    
+    message = error_info.get("message", "")
+    if message:
+        return message
+        
+    cause = error_info.get("cause")
+    if isinstance(cause, dict):
+        cause_msg = cause.get("message", "")
+        if cause_msg:
+            return cause_msg
+            
+        code = cause.get("code")
+        if code == "ERR_ASSERTION" or "operator" in cause:
+            actual = cause.get("actual")
+            expected = cause.get("expected")
+            operator = cause.get("operator")
+            return f"AssertionError: Expected {expected} {operator} {actual} (failed)"
+        return str(cause)
+    elif cause:
+        return str(cause)
+        
+    failure_type = error_info.get("failureType")
+    code = error_info.get("code")
+    if failure_type or code:
+        return f"{code or 'Error'}: {failure_type or 'Unknown failure'}"
+        
+    stack = error_info.get("stack", "")
+    if stack:
+        return stack
+        
+    return str(error_info)
+
+def parse_node_json_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]]:
+    """Parses a Node.js JSON reporter output file.
+    
+    Each line is a JSON object. We are interested in `test:fail` and `test:pass` event types,
+    as well as `test:stderr` diagnostics.
+    Extracts the test `name`, `passed` status, and any error message details.
     
     Returns:
         A tuple of (overall_passed, test_results).
@@ -115,60 +177,76 @@ def parse_tap_output(tap_text: str) -> Tuple[bool, List[Dict[str, Any]]]:
     test_results: List[Dict[str, Any]] = []
     overall_passed = True
     
-    lines = tap_text.splitlines()
-    recent_comments: List[str] = []
-    current_test: Optional[Dict[str, Any]] = None
-    
-    for line in lines:
-        line_strip = line.strip()
+    if not os.path.exists(report_path):
+        return False, []
         
-        # Match lines like "ok 1 - test description" or "not ok 2 - test description"
-        m = re.match(r'^(not\s+)?ok\s+\d+\s+-\s+(.+)$', line_strip)
-        if m:
-            is_not_ok = bool(m.group(1))
-            name = m.group(2).strip()
-            
-            # Include preceding comments if the test failed
-            msg = ""
-            if is_not_ok and recent_comments:
-                msg = "\n".join(recent_comments)
+    stderr_messages: List[str] = []
+    
+    try:
+        with open(report_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
                 
-            current_test = {
-                "name": name,
-                "passed": not is_not_ok,
-                "message": msg
-            }
-            test_results.append(current_test)
-            if is_not_ok:
-                overall_passed = False
-            # Clear comments for next test
-            recent_comments = []
-        elif line_strip.startswith('#'):
-            # Collect comment lines
-            comment = line_strip[1:].strip()
-            if comment:
-                recent_comments.append(comment)
-        elif current_test is not None:
-            # Accumulate failure details/yaml diagnostics for the current failed test
-            if line_strip.startswith('---') or line_strip.startswith('...'):
-                continue
-            
-            # If we are in yaml blocks, capture fields like "error:" or "stack:" or standard messages
-            if current_test["passed"] is False:
-                # Append relevant diagnostic lines
-                if current_test["message"]:
-                    current_test["message"] += "\n" + line_strip
-                else:
-                    current_test["message"] = line_strip
+                event_type = event.get("type")
+                data = event.get("data", {})
+                if not isinstance(data, dict):
+                    continue
                     
-    # Clean up test messages
-    for t in test_results:
-        if t["message"]:
-            t["message"] = t["message"].strip()
-            
+                if event_type == "test:stderr":
+                    msg = data.get("message", "")
+                    if msg:
+                        stderr_messages.append(msg)
+                elif event_type in ("test:pass", "test:fail"):
+                    name = data.get("name", "unknown")
+                    passed = (event_type == "test:pass")
+                    
+                    message = ""
+                    if not passed:
+                        overall_passed = False
+                        # Extract error details
+                        details = data.get("details", {})
+                        error_info = {}
+                        if isinstance(details, dict):
+                            error_info = details.get("error", {})
+                        if not error_info or not isinstance(error_info, dict):
+                            error_info = data.get("error", {})
+                        
+                        message = format_node_error(error_info)
+                        
+                        if stderr_messages:
+                            stderr_str = "".join(stderr_messages).strip()
+                            if stderr_str:
+                                if message:
+                                    message = f"{message}\n\nConsole Stderr:\n{stderr_str}"
+                                else:
+                                    message = stderr_str
+                                    
+                    test_results.append({
+                        "name": name,
+                        "passed": passed,
+                        "message": message
+                    })
+                    stderr_messages = []
+    except Exception as e:
+        overall_passed = False
+        test_results.append({
+            "name": "node-report-parser",
+            "passed": False,
+            "message": f"Error parsing report: {e}"
+        })
+        
     return overall_passed, test_results
 
 def main() -> None:
+    global START_TIME
+    START_TIME = time.time()
+
     # Set default values
     stdout = ""
     stderr = ""
@@ -237,7 +315,7 @@ def main() -> None:
                 test_results = [{
                     "name": "timeout",
                     "passed": False,
-                    "message": "Execution timed out (limit: 5s)"
+                    "message": f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
                 }]
             else:
                 # Other execution error (syntax errors, import errors, etc.)
@@ -270,8 +348,7 @@ def main() -> None:
             f.write(code)
             
         # Detect if we should use ESM or CommonJS
-        is_esm = ("import " in code or "export " in code or 
-                  "import " in test_suite or "export " in test_suite)
+        is_esm = detect_esm(code) or detect_esm(test_suite)
         if is_esm:
             package_json = os.path.join(SANDBOX_DIR, "package.json")
             with open(package_json, "w", encoding="utf-8") as f:
@@ -281,12 +358,19 @@ def main() -> None:
             with open(test_file, "w", encoding="utf-8") as f:
                 f.write(test_suite)
                 
-            # Run node test runner with tap output
-            cmd = ["node", "--test", "--test-reporter=tap", test_file]
+            # Run node test runner with JSON reporter
+            report_file = os.path.join(SANDBOX_DIR, "report.json")
+            cmd = [
+                "node",
+                "--test",
+                "--test-reporter=json",
+                f"--test-reporter-destination={report_file}",
+                test_file
+            ]
             exit_code, stdout, stderr = run_command(cmd, SANDBOX_DIR)
             
-            # Parse TAP output from stdout
-            passed, test_results = parse_tap_output(stdout)
+            # Parse JSON report output
+            passed, test_results = parse_node_json_report(report_file)
             
             # If no tests were run (empty test_results) and exit_code is non-zero,
             # or if it was a timeout / execution error, report it
@@ -294,19 +378,19 @@ def main() -> None:
                 passed = (exit_code == 0)
                 msg = stderr if stderr else stdout
                 if exit_code == -1:
-                    msg = "Execution timed out (limit: 5s)"
+                    msg = f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
                 test_results = [{
                     "name": "test_suite.js (execution error)",
                     "passed": passed,
                     "message": msg
                 }]
             elif exit_code == -1:
-                # If it was a timeout but some TAP output was generated
+                # If it was a timeout but some JSON output was generated
                 passed = False
                 test_results.append({
                     "name": "timeout",
                     "passed": False,
-                    "message": "Execution timed out (limit: 5s)"
+                    "message": f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
                 })
         else:
             # No test suite, run solution.js directly

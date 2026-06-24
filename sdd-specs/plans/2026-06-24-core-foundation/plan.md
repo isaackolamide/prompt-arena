@@ -66,7 +66,7 @@
 
 ## Phase 3: Local Code Execution Sandbox
 
-### [ ] Task 3.1: Sandbox Container Image (Docker)
+### [x] Task 3.1: Sandbox Container Image (Docker)
 - Scope: S
 - Files: `sandbox-lambda/Dockerfile` (create), `sandbox-lambda/runner.py` (create)
 - Interfaces: produces `sandbox-lambda` Docker container image

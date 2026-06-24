@@ -28,7 +28,7 @@ RUN echo "async function* customReporter(source) { for await (const event of sou
 
 RUN groupadd -g 1000 sandbox && useradd -r -u 1000 -g sandbox sandbox \
     && mkdir -p /tmp/sandbox \
-    && chown -R sandbox:sandbox /tmp/sandbox /app
+    && chown -R sandbox:sandbox /tmp/sandbox
 USER sandbox
 
 # Set entrypoint to run the runner script

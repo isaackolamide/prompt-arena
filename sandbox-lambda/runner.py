@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Tuple, Optional
 
 # Constants
 SANDBOX_DIR = "/tmp/sandbox"
-TIMEOUT_LIMIT = 5  # seconds
+TIMEOUT_LIMIT = int(os.environ.get("TIMEOUT_LIMIT", "5"))  # seconds
 
 # No global state to prevent test pollution
 
@@ -241,7 +241,7 @@ def parse_node_json_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]
         
     return overall_passed, test_results
 
-def main() -> None:
+def _main_impl() -> None:
     start_time = time.time()
 
     # Set default values
@@ -441,6 +441,22 @@ def main() -> None:
         "passed": passed,
         "test_results": test_results
     }))
+
+def main() -> None:
+    try:
+        _main_impl()
+    except Exception as e:
+        import traceback
+        print(json.dumps({
+            "stdout": "",
+            "stderr": traceback.format_exc(),
+            "passed": False,
+            "test_results": [{
+                "name": "sandbox-lambda runner error",
+                "passed": False,
+                "message": str(e)
+            }]
+        }))
 
 if __name__ == "__main__":
     main()

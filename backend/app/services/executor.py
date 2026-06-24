@@ -7,6 +7,14 @@ import requests
 
 logger = logging.getLogger("app")
 
+_docker_client = None
+
+def get_docker_client() -> docker.DockerClient:
+    global _docker_client
+    if _docker_client is None:
+        _docker_client = docker.from_env()
+    return _docker_client
+
 def execute_code_locally(
     code: str,
     language: str,
@@ -28,7 +36,7 @@ def execute_code_locally(
             "test_results": list[dict]
         }
     """
-    client = docker.from_env()
+    client = get_docker_client()
     container = None
     start_time = time.monotonic()
 
@@ -109,11 +117,22 @@ def execute_code_locally(
         )
 
         parsed_result = None
-        if exit_code == 0:
+        # Attempt to extract JSON from stdout_str by finding the first '{' and last '}'
+        start_idx = stdout_str.find('{')
+        end_idx = stdout_str.rfind('}')
+        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+            json_candidate = stdout_str[start_idx:end_idx+1]
+            try:
+                parsed_result = json.loads(json_candidate)
+            except json.JSONDecodeError as err:
+                logger.debug("Failed to parse JSON candidate from stdout: %s", err)
+
+        # Fallback to parsing entire stdout_str if candidate parse failed or was invalid
+        if parsed_result is None or not isinstance(parsed_result, dict):
             try:
                 parsed_result = json.loads(stdout_str)
-            except json.JSONDecodeError as err:
-                logger.error("Failed to parse JSON stdout: %s", err)
+            except json.JSONDecodeError:
+                parsed_result = None
 
         if parsed_result is not None and isinstance(parsed_result, dict):
             # Ensure proper schema fields

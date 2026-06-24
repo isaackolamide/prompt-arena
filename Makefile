@@ -22,7 +22,7 @@ build:
 	@echo "=== Installing dependencies if available ==="
 	@if [ -f backend/requirements.txt ]; then \
 		echo "Installing Python backend dependencies..."; \
-		pip install -r backend/requirements.txt; \
+		pip3 install -r backend/requirements.txt; \
 	fi
 	@if [ -f frontend/package.json ]; then \
 		echo "Installing React frontend dependencies..."; \
@@ -34,7 +34,7 @@ test:
 	@FAILED=0; \
 	if [ -d backend/tests ] || [ -f backend/requirements.txt ]; then \
 		echo "Running backend tests..."; \
-		pytest backend/ || FAILED=1; \
+		python3 -m pytest backend/ || FAILED=1; \
 	fi; \
 	if [ -f frontend/package.json ]; then \
 		echo "Running frontend tests..."; \
@@ -47,8 +47,8 @@ lint:
 	@FAILED=0; \
 	if [ -d backend ]; then \
 		echo "Linting backend with ruff..."; \
-		if command -v ruff >/dev/null 2>&1; then \
-			ruff check backend/ || FAILED=1; \
+		if python3 -m ruff --version >/dev/null 2>&1; then \
+			python3 -m ruff check backend/ || FAILED=1; \
 		else \
 			echo "ruff not installed, skipping backend lint."; \
 		fi; \

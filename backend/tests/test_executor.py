@@ -89,3 +89,119 @@ def test_network_block():
     stderr = res.get("stderr", "")
     stdout = res.get("stdout", "")
     assert "NETWORK_ERROR" in stdout or "urllib.error.URLError" in stderr or "URLError" in stdout or "URLError" in stderr
+
+def test_executor_json_extraction_and_sanitization():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    
+    # Configure container mock
+    mock_container.wait.return_value = {"StatusCode": 0}
+    
+    # Let's test stdout pollution and type coercion
+    # stdout has some printed dictionary, then some random text, then the actual output on the last line
+    polluted_stdout = (
+        "Some debug printed info: {'key': 'value'}\n"
+        "Another line with {unbalanced brace\n"
+        '{"stdout": "actual stdout", "stderr": "actual stderr", "passed": "true", "test_results": [{"name": "test1", "passed": 1, "message": "msg1"}]}\n'
+    )
+    
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        polluted_stdout.encode("utf-8") if stdout else b"mocked stderr logs"
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    # Check that it extracted the last line and coerced "true" to True, and 1 to True
+    assert res["passed"] is True
+    assert res["stdout"] == "actual stdout"
+    assert res["stderr"] == "actual stderr"
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "test1"
+    assert res["test_results"][0]["passed"] is True
+    assert res["test_results"][0]["message"] == "msg1"
+    
+    # Verify mock container clean up was called
+    mock_container.remove.assert_called_once_with(force=True)
+
+def test_executor_fallback_greedy_and_entire_string():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 0}
+
+    # Case A: Greedy curly brace extraction
+    stdout_case_a = "Prefix {\"stdout\": \"ok\", \"passed\": true} suffix"
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        stdout_case_a.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+    assert res["passed"] is True
+    assert res["stdout"] == "ok"
+    
+    # Case B: Entire string parsing fallback
+    stdout_case_b = '{"stdout": "entire", "passed": true}'
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        stdout_case_b.encode("utf-8") if stdout else b""
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+    assert res["passed"] is True
+    assert res["stdout"] == "entire"
+
+def test_executor_parsing_failure():
+    from unittest.mock import MagicMock, patch
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    mock_container.wait.return_value = {"StatusCode": 0}
+
+    stdout_invalid = "This is not json { at all"
+    mock_container.logs.side_effect = lambda stdout, stderr: (
+        stdout_invalid.encode("utf-8") if stdout else b"some error"
+    )
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+    assert res["passed"] is False
+    assert res["stdout"] == "This is not json { at all"
+    assert res["stderr"] == "some error"
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "execution-failure"
+
+def test_get_docker_client_thread_safety():
+    from unittest.mock import patch
+    import threading
+    import backend.app.services.executor
+    from backend.app.services.executor import get_docker_client
+    
+    with patch("docker.from_env") as mock_from_env:
+        mock_from_env.return_value = "mock_client"
+        
+        # Reset singleton state
+        backend.app.services.executor._docker_client = None
+        
+        clients = []
+        threads = []
+        def target():
+            clients.append(get_docker_client())
+            
+        for _ in range(5):
+            t = threading.Thread(target=target)
+            threads.append(t)
+            t.start()
+            
+        for t in threads:
+            t.join()
+            
+        assert len(clients) == 5
+        assert all(c == "mock_client" for c in clients)
+        # from_env should only be called once
+        mock_from_env.assert_called_once()
+

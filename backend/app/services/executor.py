@@ -1,6 +1,7 @@
 import json
 import time
 import logging
+import threading
 from typing import Dict, List, Union
 import docker
 import requests
@@ -8,11 +9,14 @@ import requests
 logger = logging.getLogger("app")
 
 _docker_client = None
+_docker_client_lock = threading.Lock()
 
 def get_docker_client() -> docker.DockerClient:
     global _docker_client
     if _docker_client is None:
-        _docker_client = docker.from_env()
+        with _docker_client_lock:
+            if _docker_client is None:
+                _docker_client = docker.from_env()
     return _docker_client
 
 def execute_code_locally(
@@ -117,34 +121,62 @@ def execute_code_locally(
         )
 
         parsed_result = None
-        # Attempt to extract JSON from stdout_str by finding the first '{' and last '}'
-        start_idx = stdout_str.find('{')
-        end_idx = stdout_str.rfind('}')
-        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-            json_candidate = stdout_str[start_idx:end_idx+1]
-            try:
-                parsed_result = json.loads(json_candidate)
-            except json.JSONDecodeError as err:
-                logger.debug("Failed to parse JSON candidate from stdout: %s", err)
+        # 1. Search for a valid JSON dictionary from the bottom of stdout_str line-by-line
+        lines = stdout_str.splitlines()
+        for line in reversed(lines):
+            stripped_line = line.strip()
+            if stripped_line.startswith('{') and stripped_line.endswith('}'):
+                try:
+                    candidate = json.loads(stripped_line)
+                    if isinstance(candidate, dict):
+                        parsed_result = candidate
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        # Fallback to parsing entire stdout_str if candidate parse failed or was invalid
-        if parsed_result is None or not isinstance(parsed_result, dict):
+        # 2. Fallback to greedy curly brace extraction
+        if parsed_result is None:
+            start_idx = stdout_str.find('{')
+            end_idx = stdout_str.rfind('}')
+            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                json_candidate = stdout_str[start_idx:end_idx+1]
+                try:
+                    candidate = json.loads(json_candidate)
+                    if isinstance(candidate, dict):
+                        parsed_result = candidate
+                except json.JSONDecodeError as err:
+                    logger.debug("Failed to parse JSON candidate from stdout: %s", err)
+
+        # 3. Fallback to parsing entire stdout_str
+        if parsed_result is None:
             try:
-                parsed_result = json.loads(stdout_str)
+                candidate = json.loads(stdout_str)
+                if isinstance(candidate, dict):
+                    parsed_result = candidate
             except json.JSONDecodeError:
                 parsed_result = None
 
         if parsed_result is not None and isinstance(parsed_result, dict):
-            # Ensure proper schema fields
-            for key in ["stdout", "stderr", "passed", "test_results"]:
-                if key not in parsed_result:
-                    if key == "passed":
-                        parsed_result[key] = False
-                    elif key == "test_results":
-                        parsed_result[key] = []
-                    else:
-                        parsed_result[key] = ""
-            return parsed_result
+            # Ensure test_results is a list
+            raw_results = parsed_result.get("test_results")
+            if not isinstance(raw_results, list):
+                raw_results = []
+
+            sanitized_results = []
+            for res in raw_results:
+                if isinstance(res, dict):
+                    sanitized_results.append({
+                        "name": str(res.get("name", "")),
+                        "passed": bool(res.get("passed", False)),
+                        "message": str(res.get("message", ""))
+                    })
+
+            return {
+                "stdout": str(parsed_result.get("stdout", "")),
+                "stderr": str(parsed_result.get("stderr", "")),
+                "passed": bool(parsed_result.get("passed", False)),
+                "test_results": sanitized_results
+            }
         else:
             return {
                 "stdout": stdout_str,

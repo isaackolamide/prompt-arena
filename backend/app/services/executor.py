@@ -69,6 +69,8 @@ def execute_code_locally(
             # Try to kill container immediately
             try:
                 container.kill()
+            except docker.errors.DockerException:
+                raise
             except Exception as kill_err:
                 logger.error("Error killing container after timeout: %s", kill_err)
 
@@ -76,6 +78,8 @@ def execute_code_locally(
             try:
                 stdout_bytes = container.logs(stdout=True, stderr=False)
                 stderr_bytes = container.logs(stdout=False, stderr=True)
+            except docker.errors.DockerException:
+                raise
             except Exception:
                 stdout_bytes = b""
                 stderr_bytes = b""
@@ -106,6 +110,8 @@ def execute_code_locally(
         try:
             stdout_bytes = container.logs(stdout=True, stderr=False)
             stderr_bytes = container.logs(stdout=False, stderr=True)
+        except docker.errors.DockerException:
+            raise
         except Exception as logs_err:
             logger.error("Error retrieving logs: %s", logs_err)
             stdout_bytes = b""

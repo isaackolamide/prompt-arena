@@ -296,3 +296,30 @@ def test_executor_parsing_failure_exit_non_zero_empty_stderr():
     assert res["test_results"][0]["message"] == "Execution failed with exit status 127"
 
 
+def test_executor_wait_api_error():
+    from unittest.mock import MagicMock, patch
+    import docker.errors
+    
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_client.containers.run.return_value = mock_container
+    
+    # Mock container.wait to raise docker.errors.APIError
+    api_error = docker.errors.APIError("Connection lost", response=None)
+    mock_container.wait.side_effect = api_error
+    
+    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+        res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
+        
+    assert res["passed"] is False
+    assert "Connection lost" in res["stderr"]
+    assert "Docker execution error:" in res["stderr"]
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "docker-error"
+    assert res["test_results"][0]["passed"] is False
+    assert "Connection lost" in res["test_results"][0]["message"]
+    
+    # Verify cleanup was still called
+    mock_container.remove.assert_called_once_with(force=True)
+
+

@@ -97,6 +97,8 @@ dev:
 start:
 	@echo "=== Starting Supabase Local Emulator ==="
 	@npx supabase start || (echo "\n[ERROR] npx supabase start failed to run or apply migrations.\nTraceback/Details:\n- Check if Docker is running.\n- Verify supabase configuration files.\n- Review supabase/migrations/ files for SQL errors." && exit 1)
+	@echo "=== Syncing Supabase Credentials to .env ==="
+	@python3 .superpowers/sdd/sync_supabase.py || (echo "\n[ERROR] Failed to sync Supabase credentials to .env file." && exit 1)
 	@echo "=== Building and Starting Docker Containers ==="
 	@docker compose up -d --build || (echo "\n[ERROR] docker compose up -d --build failed to compile or start containers.\nTraceback/Details:\n- Check docker compose build logs.\n- Verify docker configuration and ports." && exit 1)
 	@echo "=== Local Dev Environment Started Successfully ==="
@@ -115,3 +117,4 @@ clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
+	rm -rf frontend/dist frontend/playwright-report frontend/test-results

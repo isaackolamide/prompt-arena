@@ -16,7 +16,7 @@ export default function App() {
   const [status, setStatus] = useState('Welcome to Prompt Arena');
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const BACKEND_URL = 'http://localhost:8000';
+  const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

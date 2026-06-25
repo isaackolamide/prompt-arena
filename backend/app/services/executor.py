@@ -100,10 +100,8 @@ def execute_code_locally(
                 # Try to kill container immediately
                 try:
                     container.kill()
-                except docker.errors.DockerException:
-                    raise
                 except Exception as kill_err:
-                    logger.error("Error killing container after timeout: %s", kill_err)
+                    logger.warning("Error killing container after timeout: %s", kill_err)
 
                 # Read whatever logs exist
                 try:

@@ -52,7 +52,7 @@ def run_migrations_on_test_db(conn_str: str) -> None:
 
 @pytest.fixture(scope="session")
 def postgres_test_db() -> Generator[str, None, None]:
-    """Spawns a temporary postgres:15-alpine Docker container,
+    """Spawns a temporary postgres:17-alpine Docker container,
 
     applies Supabase migrations, yields the database connection string,
     and tears down the container on completion.
@@ -61,7 +61,7 @@ def postgres_test_db() -> Generator[str, None, None]:
 
     # Run the container with a random host port mapping
     container = client.containers.run(
-        "postgres:15-alpine",
+        "postgres:17-alpine",
         detach=True,
         ports={"5432/tcp": None},
         environment={
@@ -69,6 +69,7 @@ def postgres_test_db() -> Generator[str, None, None]:
             "POSTGRES_PASSWORD": "postgres",
             "POSTGRES_DB": "postgres",
         },
+        auto_remove=False,
     )
 
     try:

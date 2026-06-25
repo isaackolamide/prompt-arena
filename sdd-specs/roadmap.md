@@ -11,6 +11,8 @@
 - [x] Create a local Docker-based executor for test-running python/node snippets before integrating Lambda
 - [x] Setup unit test frameworks (`pytest` and `vitest`) with basic test execution pipelines
 - [x] Implement local containerized development and testing environment with Supabase emulation and Playwright E2E tests
+- [ ] Optimize local developer containers and align frontend with Magic Link / OTP auth flow
+
 
 **Dependencies**: Supabase database setup
 

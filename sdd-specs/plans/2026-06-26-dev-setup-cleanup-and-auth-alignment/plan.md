@@ -31,7 +31,7 @@
 - Dependencies: none
 
 ### Task 1.3: Backend Auth Route Verification
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `backend/tests/test_auth.py` (modify)
 - Interfaces:

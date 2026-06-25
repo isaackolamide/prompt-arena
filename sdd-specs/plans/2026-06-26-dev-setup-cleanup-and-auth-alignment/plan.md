@@ -86,7 +86,7 @@
 - Dependencies: Task 2.2
 
 ### Checkpoint — Phase 2
-- [ ] React frontend compiles cleanly with no warning alerts, shows premium glassmorphism layouts, and E2E authentication passes.
+- [x] React frontend compiles cleanly with no warning alerts, shows premium glassmorphism layouts, and E2E authentication passes.
 - Verification: `cd frontend && npm run build && npx playwright test`
 
 ---

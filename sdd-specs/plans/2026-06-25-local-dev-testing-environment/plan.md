@@ -21,7 +21,7 @@
 - Dependencies: none
 
 ### Task 1.2: Host Environment Bootstrapping & Setup Script
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `Makefile` (modify)
 - Interfaces: produces none; consumes none

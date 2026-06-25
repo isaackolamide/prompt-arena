@@ -1,15 +1,11 @@
-.PHONY: build test lint dev clean
+.PHONY: setup build test lint dev clean
 
 # Default target
 all: build
 
-# Build: sets up directories, checks env file, installs dependencies if manifests exist
-build:
-	@echo "=== Setting up project skeleton ==="
-	mkdir -p backend frontend sandbox-lambda
-	@touch backend/.gitkeep
-	@touch frontend/.gitkeep
-	@touch sandbox-lambda/.gitkeep
+# Setup: boots host environment by initializing configuration and installing packages
+setup:
+	@echo "=== Bootstrapping Host Environment ==="
 	@if [ ! -f .env ]; then \
 		echo "Initializing .env from .env.example..."; \
 		if [ -f .env.example ]; then \
@@ -19,7 +15,6 @@ build:
 			printf "# Supabase Configuration\nSUPABASE_URL=\nSUPABASE_ANON_KEY=\nSUPABASE_SERVICE_ROLE_KEY=\n\n# Gemini API Configuration\nGEMINI_API_KEY=\n\n# App Environment\nENV=development\nPORT=8000\n" > .env; \
 		fi \
 	fi
-	@echo "=== Installing dependencies if available ==="
 	@if [ -f backend/requirements.txt ]; then \
 		echo "Installing Python backend dependencies..."; \
 		pip3 install -r backend/requirements.txt; \
@@ -28,7 +23,15 @@ build:
 		echo "Installing React frontend dependencies..."; \
 		cd frontend && npm install; \
 	fi
-	@if [ -d sandbox-lambda ]; then \
+
+# Build: sets up directories, builds sandbox container image
+build: setup
+	@echo "=== Setting up project skeleton ==="
+	mkdir -p backend frontend sandbox-lambda
+	@touch backend/.gitkeep
+	@touch frontend/.gitkeep
+	@touch sandbox-lambda/.gitkeep
+	@if [ -d sandbox-lambda ] && [ -f sandbox-lambda/Dockerfile ]; then \
 		echo "Building sandbox-lambda container image..."; \
 		docker build -t sandbox-lambda sandbox-lambda/; \
 	fi

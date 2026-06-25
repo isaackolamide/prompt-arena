@@ -1,34 +1,36 @@
-# Task 1.2 Report: Test Frameworks & CI Config (pytest & vitest)
+# Task 1.2 Report: Host Environment Bootstrapping & Setup Script
 
-## What was implemented
-1. **Backend Testing Setup**:
-   - Created `backend/requirements.txt` containing dependencies for pytest, fastapi, pydantic, uvicorn, httpx, and ruff.
-   - Created `backend/tests/test_dummy.py` with a basic, type-safe unit test to verify that the pytest runner executes properly.
-2. **Frontend Testing Setup**:
-   - Created `frontend/package.json` with scripts for `dev`, `build`, `lint` (running `tsc --noEmit`), and `test` (running `vitest`).
-   - Configured Vitest in `frontend/vite.config.ts` using the jsdom environment and setting up testing library setup path.
-   - Created `frontend/tsconfig.json` with strict type checking and custom path aliases configured to support type checking via `tsc --noEmit`.
-   - Created `frontend/src/tests/setup.ts` to import `@testing-library/jest-dom`.
-   - Created `frontend/src/tests/dummy.test.ts` with a simple TypeScript-compliant unit test for Vitest.
-3. **Makefile Integration**:
-   - Updated root-level `Makefile` to use `pip3` instead of `pip`.
-   - Updated `make test` target in `Makefile` to run backend tests using `python3 -m pytest backend/` (which handles environments where user site-packages bin directories are not on the system PATH).
-   - Updated `make lint` target in `Makefile` to run `python3 -m ruff check backend/` for similar PATH compatibility.
+## What Was Implemented
+1. **Added `setup` Target to `Makefile`**:
+   - Boots the host environment by checking for `.env` and copying `.env.example` if it does not exist.
+   - Installs backend Python dependencies via `pip3 install -r backend/requirements.txt`.
+   - Installs React frontend dependencies via `npm install` inside `frontend/`.
+   - Marked the target as `.PHONY`.
+2. **Unified Bootstrapping in `build` Target**:
+   - Refactored the `build` target in the `Makefile` to depend directly on `setup` (`build: setup`).
+   - Cleaned up the redundant env-check and npm/pip install commands from the `build` target body.
+   - Preserved skeleton directory setup (`mkdir -p`) and sandbox container image building in `build`.
 
-## Files Created/Modified
+## Files Changed
 - [Makefile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/Makefile) (Modified)
-- [backend/requirements.txt](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/requirements.txt) (Created)
-- [backend/tests/test_dummy.py](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/tests/test_dummy.py) (Created)
-- [frontend/package.json](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/package.json) (Created)
-- [frontend/tsconfig.json](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/tsconfig.json) (Created)
-- [frontend/vite.config.ts](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/vite.config.ts) (Created)
-- [frontend/src/tests/setup.ts](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/src/tests/setup.ts) (Created)
-- [frontend/src/tests/dummy.test.ts](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/src/tests/dummy.test.ts) (Created)
+
+## Verification & Test Results
+1. **Environment Initialization**:
+   - Backed up `.env` and ran `make setup`.
+   - Verified that `.env` was successfully created from the `.env.example` template.
+2. **Dependency Installation**:
+   - Running `make setup` successfully resolved all backend Python packages and ran `npm install` within `frontend/` without errors.
+3. **Linter Execution**:
+   - Ran `make lint` from root.
+   - *Result*: All checks passed successfully (Ruff and TypeScript checks with 0 errors).
+4. **Test Suite Execution**:
+   - Ran `make test` from root.
+   - *Result*: 29/29 backend tests passed; 1/1 frontend test passed.
 
 ## Self-Review Findings
-- **Completeness**: All required files and directories under Task 1.2 were created and populated correctly.
-- **Quality**: Strict TypeScript and Python type annotations are used. Naming and style constraints matching `.agents/AGENTS.md` are adhered to.
-- **Verification**: Verified that running `make build`, `make test`, and `make lint` execute successfully and all checks pass cleanly.
+- **Quality**: The target dependencies are clean and follow standard GNU Make patterns.
+- **Scope**: Changes were strictly limited to the `Makefile` as requested by the task brief.
+- **Robustness**: Handled path changes (`cd frontend && npm install`) safely.
 
 ## Issues or Concerns
-- None. Both frameworks are configured and fully operational.
+- None.

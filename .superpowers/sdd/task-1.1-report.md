@@ -1,31 +1,42 @@
-# Task 1.1 Report: Monorepo Root Skeleton & Makefile
+# Task 1.1 Report: Optimize Supabase Config
 
-## What was implemented
-1. **Monorepo Directory Skeleton**: Created `backend/`, `frontend/`, and `sandbox-lambda/` directories and added `.gitkeep` files to each so they are tracked by Git.
-2. **Root Makefile**: Implemented root-level Makefile with standard CLI targets:
-   - `build`: Prepares directory structure, initializes local environment `.env` from template, and runs dependencies install if manifests exist.
-   - `test`: Automatically delegates test running to subprojects (pytest on backend, npm/vitest on frontend).
-   - `lint`: Delegates linting to subprojects (ruff on backend, eslint on frontend).
-   - `dev`: Provides instructions on how to boot dev environment servers.
-   - `clean`: Cleans python cache files and test caches.
-3. **Environment Template**: Created `.env.example` file in the root containing placeholders for Supabase configurations (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) and Gemini API (`GEMINI_API_KEY`).
-4. **Developer Agent Guide**: Created `.agents/AGENTS.md` containing the behavioral guidelines (five non-negotiables), language styling guidelines (for Python and TypeScript), and standard CLI commands.
-5. **Gitignore Enhancements**: Appended standard Node, Vite, React, and vitest ignores (like `node_modules/`, `dist/`, `.env.local`, `.env.*.local`, etc.) to the existing `.gitignore` file.
+## What Was Implemented
+We modified `supabase/config.toml` to disable unused services to optimize the memory and CPU footprint of the local dev environment.
+Specifically:
+- Disabled `realtime` by setting `enabled = false`.
+- Disabled `storage` by setting `enabled = false`.
+- Disabled `storage.s3_protocol` by setting `enabled = false`.
+- Disabled `storage.vector` by setting `enabled = false`.
+- Disabled `edge_runtime` by setting `enabled = false`.
+
+## What Was Tested and Test Results
+1. **Developer Environment Restart**:
+   Ran `make stop && make start`. The environment restarted successfully, and the Supabase Local Emulator started with the following output:
+   `Stopped services: [supabase_realtime_prompt-arena supabase_storage_prompt-arena supabase_imgproxy_prompt-arena supabase_edge_runtime_prompt-arena supabase_analytics_prompt-arena supabase_vector_prompt-arena supabase_pooler_prompt-arena]`
+2. **Container Footprint Verification**:
+   Ran `docker ps` to verify that only the required containers are active:
+   - `supabase_db_prompt-arena`
+   - `supabase_kong_prompt-arena`
+   - `supabase_auth_prompt-arena`
+   - `supabase_inbucket_prompt-arena`
+   - `supabase_rest_prompt-arena`
+   - `supabase_pg_meta_prompt-arena`
+   - `supabase_studio_prompt-arena`
+   - `prompt-arena-backend-1`
+   - `prompt-arena-frontend-1`
+   
+   Confirmed that no `realtime`, `storage`, or `edge_runtime` (functions) containers were spawned.
+3. **Linting Verification**:
+   Ran `make lint`. All checks passed.
+4. **Test Suite Verification**:
+   Ran `make test`. All 34 backend tests and 1 frontend test passed successfully.
 
 ## Files Changed
-- [Makefile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/Makefile) (Created)
-- [.env.example](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/.env.example) (Created)
-- [.agents/AGENTS.md](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/.agents/AGENTS.md) (Created)
-- [.gitignore](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/.gitignore) (Modified)
-- [backend/.gitkeep](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/.gitkeep) (Created)
-- [frontend/.gitkeep](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/.gitkeep) (Created)
-- [sandbox-lambda/.gitkeep](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/sandbox-lambda/.gitkeep) (Created)
+- [supabase/config.toml](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/supabase/config.toml)
 
 ## Self-Review Findings
-- **Completeness**: All items listed in the Task 1.1 brief were successfully implemented.
-- **Quality**: File names, target definitions, and naming guidelines match the specifications in the Tech Stack and Requirements documents.
-- **Discipline**: Adhered strictly to YAGNI. Did not set up full package configurations or tests since those belong in Task 1.2.
-- **Verification**: Verified that `make build`, `make test`, and `make lint` execute successfully.
+- The changes are minimal, targeted, and completely meet the acceptance criteria of Task 1.1.
+- No other service settings were altered.
 
-## Issues or Concerns
-- None. The task was straightforward and serves as a clean starting skeleton for the rest of the project.
+## Issues/Concerns
+- None. The configuration change went smoothly and does not impact existing authentication, database, or API functionality.

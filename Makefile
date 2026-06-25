@@ -1,4 +1,4 @@
-.PHONY: setup build test lint dev clean start stop
+.PHONY: setup build test test-unit lint dev clean start stop
 
 # Default target
 all: build
@@ -46,6 +46,19 @@ test:
 	fi; \
 	if [ -f frontend/package.json ]; then \
 		echo "Running frontend tests..."; \
+		cd frontend && npm run test -- --run || FAILED=1; \
+	fi; \
+	exit $$FAILED
+
+test-unit:
+	@echo "=== Running unit tests ==="
+	@FAILED=0; \
+	if [ -d backend/tests ] || [ -f backend/requirements.txt ]; then \
+		echo "Running backend unit tests..."; \
+		python3 -m pytest backend/ --ignore=backend/tests/integration/ || FAILED=1; \
+	fi; \
+	if [ -f frontend/package.json ]; then \
+		echo "Running frontend unit tests..."; \
 		cd frontend && npm run test -- --run || FAILED=1; \
 	fi; \
 	exit $$FAILED

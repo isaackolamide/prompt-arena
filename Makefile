@@ -1,4 +1,4 @@
-.PHONY: setup build test test-unit lint dev clean start stop
+.PHONY: setup build test test-unit test-integration lint dev clean start stop
 
 # Default target
 all: build
@@ -62,6 +62,11 @@ test-unit:
 		cd frontend && npm run test -- --run || FAILED=1; \
 	fi; \
 	exit $$FAILED
+
+test-integration:
+	@echo "=== Running database integration tests ==="
+	python3 -m pytest backend/tests/integration/
+
 
 lint:
 	@echo "=== Linting all modules ==="

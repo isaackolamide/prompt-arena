@@ -90,7 +90,7 @@
 - Dependencies: Checkpoint — Phase 2
 
 ### Task 3.2: Temp Integration Database Bootstrapping and Cleanup
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: M
 - Files: `backend/tests/conftest.py` (modify), `backend/tests/integration/test_database.py` (create), `Makefile` (modify)
 - Interfaces: produces `postgres_test_db() -> str` as a pytest fixture; produces `run_migrations_on_test_db(conn_str: str) -> None` to run SQL migrations; consumes none

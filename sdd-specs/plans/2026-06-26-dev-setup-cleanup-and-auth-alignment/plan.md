@@ -19,7 +19,7 @@
 - Dependencies: none
 
 ### Task 1.2: Remove Password-Based Backend Routes
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `backend/app/api/auth.py` (modify)
 - Interfaces:

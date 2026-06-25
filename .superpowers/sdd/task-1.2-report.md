@@ -1,36 +1,33 @@
-# Task 1.2 Report: Host Environment Bootstrapping & Setup Script
+# Task 1.2 Report: Remove Password-Based Backend Routes
 
-## What Was Implemented
-1. **Added `setup` Target to `Makefile`**:
-   - Boots the host environment by checking for `.env` and copying `.env.example` if it does not exist.
-   - Installs backend Python dependencies via `pip3 install -r backend/requirements.txt`.
-   - Installs React frontend dependencies via `npm install` inside `frontend/`.
-   - Marked the target as `.PHONY`.
-2. **Unified Bootstrapping in `build` Target**:
-   - Refactored the `build` target in the `Makefile` to depend directly on `setup` (`build: setup`).
-   - Cleaned up the redundant env-check and npm/pip install commands from the `build` target body.
-   - Preserved skeleton directory setup (`mkdir -p`) and sandbox container image building in `build`.
+## What was implemented
+In `backend/app/api/auth.py`, we removed the password-based registration and login flows. Specifically:
+- **Removed Schemas:**
+  - `RegisterRequest`
+  - `RegisterResponse`
+  - `LoginRequest`
+  - `LoginResponse`
+- **Removed Helper Functions:**
+  - `sign_up_user`
+  - `login_user`
+- **Removed POST Endpoints:**
+  - `/api/auth/register` (`post_register`)
+  - `/api/auth/login` (`post_login`)
 
-## Files Changed
-- [Makefile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/Makefile) (Modified)
+Only the magic link/OTP email authentication flows (`send_magic_link`, `verify_otp`, `/api/auth/magic-link`, `/api/auth/verify`) remain.
 
-## Verification & Test Results
-1. **Environment Initialization**:
-   - Backed up `.env` and ran `make setup`.
-   - Verified that `.env` was successfully created from the `.env.example` template.
-2. **Dependency Installation**:
-   - Running `make setup` successfully resolved all backend Python packages and ran `npm install` within `frontend/` without errors.
-3. **Linter Execution**:
-   - Ran `make lint` from root.
-   - *Result*: All checks passed successfully (Ruff and TypeScript checks with 0 errors).
-4. **Test Suite Execution**:
-   - Ran `make test` from root.
-   - *Result*: 29/29 backend tests passed; 1/1 frontend test passed.
+## What was tested and test results
+- Ran `make lint` to verify syntax and formatting correctness. Both backend and frontend linting checks passed successfully.
+- Ran `make test`.
+  - Prior to modification: 34/34 tests passed.
+  - After modification: 30/34 tests passed. The 4 failing tests are in `backend/tests/test_auth.py` (`test_register_success`, `test_register_failure`, `test_login_success`, `test_login_failure`) because they attempt to POST to the now-removed `/api/auth/register` and `/api/auth/login` endpoints, returning a `404 Not Found` as expected. These tests will be updated/removed in Task 1.3.
 
-## Self-Review Findings
-- **Quality**: The target dependencies are clean and follow standard GNU Make patterns.
-- **Scope**: Changes were strictly limited to the `Makefile` as requested by the task brief.
-- **Robustness**: Handled path changes (`cd frontend && npm install`) safely.
+## Files changed
+- [backend/app/api/auth.py](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/app/api/auth.py)
 
-## Issues or Concerns
-- None.
+## Self-review findings
+- Checked if any imports became unused. All imports in `backend/app/api/auth.py` are still actively used (e.g., `BaseModel` and `Field` are used by the magic link/OTP schemas).
+- Confirmed that `/api/auth/register` and `/api/auth/login` now consistently return 404 (Not Found).
+
+## Issues or concerns
+- None. The failures in `backend/tests/test_auth.py` are fully expected and will be addressed in Task 1.3.

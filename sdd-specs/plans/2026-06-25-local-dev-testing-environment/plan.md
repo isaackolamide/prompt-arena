@@ -9,7 +9,7 @@
 ## Phase 1: Setup Host, Supabase CLI, and Playwright
 
 ### Task 1.1: Local Supabase CLI Initial Configuration & Migration Path
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `supabase/config.toml` (create), `supabase/migrations/20260625000000_init_schema.sql` (create), `supabase/seed.sql` (create)
 - Interfaces: produces none; consumes none

@@ -76,6 +76,10 @@ For detailed implementation guidelines (AAA structure, mocks, and builders), ref
 - Assertion Library: Vitest assertions with React Testing Library
 - Coverage Target: 80%
 
+#### E2E & Database Simulation
+- E2E Test Runner: `Playwright`
+- Database Emulator: `Supabase CLI` (spawns Docker containers for PostgreSQL, GoTrue, and PostgREST)
+
 ### TDD & Mocking Conventions
 - **TDD Cycle**: Follow Red-Green-Refactor. Always write a failing test before introducing logic.
 - **Mock Boundaries**: Mock database (Supabase) calls, external LLM API calls, and AWS Lambda executor HTTP invocations. Never mock pure scoring functions, budget validators, or core domain logic.
@@ -84,12 +88,13 @@ For detailed implementation guidelines (AAA structure, mocks, and builders), ref
 ### Test Organization
 
 Tests live in:
-- Backend: `backend/tests/`
-- Frontend: `frontend/src/tests/` or alongside source components as `[name].test.tsx`
+- Backend Unit & Integration: `backend/tests/`
+- Frontend Unit: `frontend/src/tests/` or alongside source components as `[name].test.tsx`
+- Frontend E2E: `frontend/e2e/` (or similar)
 - Sandbox: `sandbox-lambda/tests/`
 
 ### Test Levels
 
 - **Unit**: Test individual React components, utility hooks, FastAPI services, and prompt calculators.
-- **Integration**: Test full API request-response cycles, Supabase client operations, and external system handlers.
-- **E2E**: Critical flows only (e.g., Auth sign-in -> start challenge -> submit challenge -> scorecard displayed).
+- **Integration**: Test full API request-response cycles against a real, temporary containerized PostgreSQL/Supabase database.
+- **E2E**: Verify critical user flows (e.g., Auth sign-in -> start challenge -> submit challenge -> scorecard displayed) using Playwright targeting the containerized frontend.

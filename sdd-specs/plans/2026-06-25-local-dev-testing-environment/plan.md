@@ -111,7 +111,7 @@
 - Dependencies: Task 3.2
 
 ### Checkpoint — Phase 3
-- [ ] All test levels (unit, integration, and E2E) run and pass successfully in local isolation.
+- [x] All test levels (unit, integration, and E2E) run and pass successfully in local isolation.
 - Verification: Run `make test-unit`, `make test-integration`, and `make test-e2e` sequentially.
 
 ---

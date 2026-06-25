@@ -43,7 +43,7 @@
 - Dependencies: Task 1.2
 
 ### Checkpoint — Phase 1
-- [ ] Supabase CLI runs with minimal container footprint and FastAPI has deprecated password registration.
+- [x] Supabase CLI runs with minimal container footprint and FastAPI has deprecated password registration.
 - Verification: `docker ps --format "table {{.Names}}" && pytest backend/`
 
 ---

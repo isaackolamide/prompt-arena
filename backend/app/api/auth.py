@@ -1,4 +1,5 @@
 import logging
+import time
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr
 from app.db.supabase import get_supabase_client
@@ -126,15 +127,22 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
 
 @router.post("/magic-link", response_model=MagicLinkResponse)
 def post_magic_link(payload: MagicLinkRequest) -> dict[str, str]:
+    start_time = time.perf_counter()
     try:
         result = send_magic_link(payload.email)
+        duration = time.perf_counter() - start_time
+        logger.info(f"Magic link request processed in {duration:.4f}s")
         return result
     except AuthApiError as e:
+        duration = time.perf_counter() - start_time
+        logger.info(f"Magic link request processed in {duration:.4f}s")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Auth error: {e.message}"
         )
     except Exception:
+        duration = time.perf_counter() - start_time
+        logger.info(f"Magic link request processed in {duration:.4f}s")
         logger.exception("Unexpected error sending magic link")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -144,20 +152,29 @@ def post_magic_link(payload: MagicLinkRequest) -> dict[str, str]:
 
 @router.post("/verify", response_model=VerifyResponse)
 def post_verify(payload: VerifyRequest) -> dict[str, str]:
+    start_time = time.perf_counter()
     try:
         result = verify_otp(payload.email, payload.token)
+        duration = time.perf_counter() - start_time
+        logger.info(f"OTP verification request processed in {duration:.4f}s")
         return result
     except AuthApiError as e:
+        duration = time.perf_counter() - start_time
+        logger.info(f"OTP verification request processed in {duration:.4f}s")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Auth verification failed: {e.message}"
         )
     except SessionCreationError as e:
+        duration = time.perf_counter() - start_time
+        logger.info(f"OTP verification request processed in {duration:.4f}s")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Verification failed: {str(e)}"
         )
     except Exception:
+        duration = time.perf_counter() - start_time
+        logger.info(f"OTP verification request processed in {duration:.4f}s")
         logger.exception("Unexpected error verifying OTP")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

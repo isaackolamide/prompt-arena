@@ -212,3 +212,24 @@ def test_otp_verification(client: TestClient, mock_supabase):
         "token": "123456",
         "type": "magiclink"
     })
+
+
+def test_verify_otp_with_token_hash(client: TestClient, mock_supabase):
+    mock_auth_res = MagicMock()
+    mock_session = MagicMock()
+    mock_session.access_token = "mock-jwt-token"
+    mock_auth_res.session = mock_session
+    mock_supabase.auth.verify_otp.return_value = mock_auth_res
+
+    long_token = "7eae239c952e6deea3f183b9714cc7333f0dc04d8e4e7061011c9f68"
+    response = client.post(
+        "/api/auth/verify",
+        json={"email": "user@example.com", "token": long_token},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"access_token": "mock-jwt-token"}
+    mock_supabase.auth.verify_otp.assert_called_once_with({
+        "token_hash": long_token,
+        "type": "magiclink"
+    })
+

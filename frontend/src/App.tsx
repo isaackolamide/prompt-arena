@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import './App.css';
 
 interface AuthUser {
   email: string;
@@ -57,89 +58,44 @@ export default function App() {
     }
   };
 
-  const getStatusStyles = () => {
+  const getStatusClass = () => {
     if (status.startsWith('Error:')) {
-      return {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        border: '1px solid rgba(239, 68, 68, 0.2)',
-        color: '#f87171',
-      };
+      return 'status-box status-error';
     }
     const isSuccess =
       status.startsWith('Magic link sent successfully') ||
       status.startsWith('Logged in as');
     if (isSuccess) {
-      return {
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        border: '1px solid rgba(16, 185, 129, 0.2)',
-        color: '#34d399',
-      };
+      return 'status-box status-success';
     }
-    return {
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      border: '1px solid rgba(59, 130, 246, 0.2)',
-      color: '#60a5fa',
-    };
+    return 'status-box status-info';
   };
 
   return (
-    <div style={{
-      fontFamily: 'Inter, sans-serif',
-      background: 'linear-gradient(135deg, #1e1e24 0%, #111115 100%)',
-      color: '#f3f4f6',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2rem'
-    }}>
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.05)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '16px',
-        padding: '2.5rem',
-        width: '100%',
-        maxWidth: '480px',
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        textAlign: 'center'
-      }}>
-        <h1 style={{
-          margin: '0 0 0.5rem 0',
-          fontSize: '2.5rem',
-          fontWeight: 700,
-          background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>
+    <div className="app-container">
+      <div className="bg-blob bg-blob-purple"></div>
+      <div className="bg-blob bg-blob-cyan"></div>
+      
+      <div className="glass-card">
+        <h1 className="app-title">
           Prompt Arena
         </h1>
-        <p id="welcome-message" style={{
-          color: '#9ca3af',
-          margin: '0 0 2rem 0'
-        }}>
+        <p id="welcome-message" className="welcome-msg">
           Welcome to Prompt Arena
         </p>
         
-        <div id="auth-status" style={{
-          padding: '1rem',
-          borderRadius: '8px',
-          ...getStatusStyles(),
-          marginBottom: '2rem',
-          fontWeight: 500,
-          wordBreak: 'break-all'
-        }}>
+        <div id="auth-status" className={getStatusClass()}>
           {status}
         </div>
 
         {user ? (
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+            <h2 className="welcome-title">
               Welcome, {user.email}!
             </h2>
             <button 
               id="logout-button"
+              className="btn-logout"
               onClick={() => {
                 setUser(null);
                 setEmail('');
@@ -147,46 +103,25 @@ export default function App() {
                 setStep('request-otp');
                 setStatus('Welcome to Prompt Arena');
               }}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                border: 'none',
-                background: '#ef4444',
-                color: 'white',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'background 0.2s'
-              }}
             >
               Log Out
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+          <div className="auth-form-wrapper">
             {step === 'request-otp' ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleRequestOtp(email);
                 }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1rem',
-                  textAlign: 'left'
-                }}
+                className="form-container"
               >
-                <h3 style={{
-                  margin: 0,
-                  fontSize: '1.25rem',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                  paddingBottom: '0.5rem'
-                }}>
+                <h3 className="form-title">
                   Sign In
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <label htmlFor="email-input" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                <div className="input-group">
+                  <label htmlFor="email-input" className="input-label">
                     Email
                   </label>
                   <input
@@ -195,29 +130,13 @@ export default function App() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                      color: 'white',
-                      outline: 'none'
-                    }}
+                    className="text-input"
                   />
                 </div>
                 <button
                   id="submit-email-button"
                   type="submit"
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
-                    color: 'white',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    marginTop: '0.5rem'
-                  }}
+                  className="btn-submit btn-email-submit"
                 >
                   Send Magic Link
                 </button>
@@ -228,23 +147,13 @@ export default function App() {
                   e.preventDefault();
                   handleVerifyOtp(email, token);
                 }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1rem',
-                  textAlign: 'left'
-                }}
+                className="form-container"
               >
-                <h3 style={{
-                  margin: 0,
-                  fontSize: '1.25rem',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                  paddingBottom: '0.5rem'
-                }}>
+                <h3 className="form-title">
                   Verify OTP
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <label htmlFor="otp-input" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                <div className="input-group">
+                  <label htmlFor="otp-input" className="input-label">
                     One-Time Password / Token
                   </label>
                   <input
@@ -253,29 +162,13 @@ export default function App() {
                     required
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                      color: 'white',
-                      outline: 'none'
-                    }}
+                    className="text-input"
                   />
                 </div>
                 <button
                   id="submit-otp-button"
                   type="submit"
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'linear-gradient(90deg, #8b5cf6, #7c3aed)',
-                    color: 'white',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    marginTop: '0.5rem'
-                  }}
+                  className="btn-submit btn-otp-verify"
                 >
                   Verify OTP
                 </button>
@@ -286,16 +179,7 @@ export default function App() {
                     setToken('');
                     setStatus('Welcome to Prompt Arena');
                   }}
-                  style={{
-                    padding: '0.5rem',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'transparent',
-                    color: '#9ca3af',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    transition: 'color 0.2s'
-                  }}
+                  className="btn-back"
                 >
                   Back to Sign In
                 </button>

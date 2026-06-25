@@ -127,7 +127,9 @@ def test_send_magic_link_invalid_email():
 
 def test_verify_otp_invalid_email():
     # Attempting to call verify with invalid email format
-    response = client.post("/api/auth/verify", json={"email": "not-an-email", "token": "123456"})
+    response = client.post(
+        "/api/auth/verify", json={"email": "not-an-email", "token": "123456"}
+    )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     # Verify the error detail mentions the email validation failure
     errors = response.json()["detail"]
@@ -142,7 +144,11 @@ def test_register_success(mock_supabase):
     mock_supabase.auth.sign_up.return_value = mock_auth_res
 
     # Call endpoint
-    payload = {"email": "test@example.com", "password": "password123", "username": "testuser"}
+    payload = {
+        "email": "test@example.com",
+        "password": "password123",
+        "username": "testuser",
+    }
     response = client.post("/api/auth/register", json=payload)
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"status": "success", "user_id": "user-uuid-123"}
@@ -160,7 +166,11 @@ def test_register_failure(mock_supabase):
     # Setup mock to raise AuthApiError
     mock_supabase.auth.sign_up.side_effect = AuthApiError("User already exists", 400, "user_exists")
 
-    payload = {"email": "test@example.com", "password": "password123", "username": "testuser"}
+    payload = {
+        "email": "test@example.com",
+        "password": "password123",
+        "username": "testuser",
+    }
     response = client.post("/api/auth/register", json=payload)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Auth error" in response.json()["detail"]

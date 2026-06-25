@@ -9,9 +9,11 @@ except ModuleNotFoundError:
 
 logger = logging.getLogger("app")
 
+
 def mask_email(email: str) -> str:
     """
-    Masks user email (e.g. user@example.com -> u***r@example.com) to prevent writing plaintext PII in logs.
+    Masks user email (e.g. user@example.com -> u***r@example.com) to
+    prevent writing plaintext PII in logs.
     """
     if not email or "@" not in email:
         return email
@@ -20,47 +22,60 @@ def mask_email(email: str) -> str:
         if len(local_part) <= 2:
             masked_local = local_part[0] + "*" * (len(local_part) - 1)
         else:
-            masked_local = local_part[0] + "*" * (len(local_part) - 2) + local_part[-1]
+            masked_local = (
+                local_part[0] + "*" * (len(local_part) - 2) + local_part[-1]
+            )
         return f"{masked_local}@{domain}"
     except Exception:
         return email
 
+
 class SessionCreationError(Exception):
-    """Exception raised when a session cannot be created from OTP verification."""
+    """Exception raised when a session cannot be created from OTP."""
     pass
 
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
 
 class MagicLinkRequest(BaseModel):
     email: EmailStr = Field(..., description="The user's email address")
 
+
 class MagicLinkResponse(BaseModel):
     status: str = Field(..., description="The status of the magic link request")
+
 
 class VerifyRequest(BaseModel):
     email: EmailStr = Field(..., description="The user's email address")
     token: str = Field(..., description="The OTP/token received by the user")
 
+
 class VerifyResponse(BaseModel):
-    access_token: str = Field(..., description="The access token for authentication")
+    access_token: str = Field(..., description="The access token for auth")
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr = Field(..., description="The user's email address")
     password: str = Field(..., min_length=6, description="The user's password")
     username: str = Field(..., min_length=3, description="The user's username")
 
+
 class RegisterResponse(BaseModel):
     status: str = Field(..., description="The status of the registration")
     user_id: str = Field(..., description="The registered user's ID")
+
 
 class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="The user's email address")
     password: str = Field(..., description="The user's password")
 
+
 class LoginResponse(BaseModel):
-    access_token: str = Field(..., description="The access token for authentication")
+    access_token: str = Field(..., description="The access token for auth")
     email: str = Field(..., description="The logged in user's email")
     username: str = Field(..., description="The logged in user's username")
+
 
 def send_magic_link(email: str) -> dict[str, str]:
     """
@@ -70,14 +85,23 @@ def send_magic_link(email: str) -> dict[str, str]:
     client = get_supabase_client()
     try:
         client.auth.sign_in_with_otp({"email": email})
-        logger.info(f"Magic link sent successfully to email: {mask_email(email)}")
+        logger.info(
+            f"Magic link sent successfully to email: {mask_email(email)}"
+        )
         return {"status": "success"}
     except AuthApiError as e:
-        logger.error(f"Failed to send magic link via Supabase Auth for {mask_email(email)}: {e}")
+        logger.error(
+            f"Failed to send magic link via Supabase Auth for "
+            f"{mask_email(email)}: {e}"
+        )
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error sending magic link for {mask_email(email)}: {e}")
+        logger.error(
+            f"Unexpected error sending magic link for "
+            f"{mask_email(email)}: {e}"
+        )
         raise e
+
 
 def verify_otp(email: str, token: str) -> dict[str, str]:
     """
@@ -92,16 +116,27 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
             "type": "magiclink"
         })
         if not res or not res.session:
-            logger.error(f"No session returned for {mask_email(email)} after OTP verification")
+            logger.error(
+                f"No session returned for {mask_email(email)} "
+                f"after OTP verification"
+            )
             raise SessionCreationError("Session could not be created.")
-        logger.info(f"OTP verification successful for email: {mask_email(email)}")
+        logger.info(
+            f"OTP verification successful for email: {mask_email(email)}"
+        )
         return {"access_token": res.session.access_token}
     except AuthApiError as e:
-        logger.error(f"Failed to verify OTP via Supabase Auth for {mask_email(email)}: {e}")
+        logger.error(
+            f"Failed to verify OTP via Supabase Auth for "
+            f"{mask_email(email)}: {e}"
+        )
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error verifying OTP for {mask_email(email)}: {e}")
+        logger.error(
+            f"Unexpected error verifying OTP for {mask_email(email)}: {e}"
+        )
         raise e
+
 
 def sign_up_user(email: str, password: str, username: str) -> dict[str, str]:
     """
@@ -120,16 +155,27 @@ def sign_up_user(email: str, password: str, username: str) -> dict[str, str]:
             }
         })
         if not res or not res.user:
-            logger.error(f"Failed to create user object for {mask_email(email)}")
+            logger.error(
+                f"Failed to create user object for {mask_email(email)}"
+            )
             raise Exception("Registration failed to create user object.")
-        logger.info(f"User registration successful: {mask_email(email)} with ID {res.user.id}")
+        logger.info(
+            f"User registration successful: {mask_email(email)} "
+            f"with ID {res.user.id}"
+        )
         return {"status": "success", "user_id": str(res.user.id)}
     except AuthApiError as e:
-        logger.error(f"Failed to register user via Supabase Auth for {mask_email(email)}: {e}")
+        logger.error(
+            f"Failed to register user via Supabase Auth for "
+            f"{mask_email(email)}: {e}"
+        )
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error registering user for {mask_email(email)}: {e}")
+        logger.error(
+            f"Unexpected error registering user for {mask_email(email)}: {e}"
+        )
         raise e
+
 
 def login_user(email: str, password: str) -> dict[str, str]:
     """
@@ -143,27 +189,38 @@ def login_user(email: str, password: str) -> dict[str, str]:
             "password": password
         })
         if not res or not res.session or not res.user:
-            logger.error(f"No session/user returned for {mask_email(email)} after password sign-in")
+            logger.error(
+                f"No session/user returned for {mask_email(email)} "
+                f"after password sign-in"
+            )
             raise SessionCreationError("Session could not be created.")
-        
+
         user_metadata = res.user.user_metadata or {}
         username = user_metadata.get("username", "")
-        
-        logger.info(f"Password login successful for user: {mask_email(email)}")
+
+        logger.info(
+            f"Password login successful for user: {mask_email(email)}"
+        )
         return {
             "access_token": res.session.access_token,
             "email": res.user.email,
             "username": username
         }
     except AuthApiError as e:
-        logger.error(f"Failed to authenticate via Supabase Auth for {mask_email(email)}: {e}")
+        logger.error(
+            f"Failed to authenticate via Supabase Auth for "
+            f"{mask_email(email)}: {e}"
+        )
         raise e
     except Exception as e:
-        logger.error(f"Unexpected error authenticating for {mask_email(email)}: {e}")
+        logger.error(
+            f"Unexpected error authenticating for {mask_email(email)}: {e}"
+        )
         raise e
 
+
 @router.post("/magic-link", response_model=MagicLinkResponse)
-def post_magic_link(payload: MagicLinkRequest):
+def post_magic_link(payload: MagicLinkRequest) -> dict[str, str]:
     try:
         result = send_magic_link(payload.email)
         return result
@@ -179,8 +236,9 @@ def post_magic_link(payload: MagicLinkRequest):
             detail="Internal server error"
         )
 
+
 @router.post("/verify", response_model=VerifyResponse)
-def post_verify(payload: VerifyRequest):
+def post_verify(payload: VerifyRequest) -> dict[str, str]:
     try:
         result = verify_otp(payload.email, payload.token)
         return result
@@ -201,10 +259,13 @@ def post_verify(payload: VerifyRequest):
             detail="Internal server error"
         )
 
+
 @router.post("/register", response_model=RegisterResponse)
-def post_register(payload: RegisterRequest):
+def post_register(payload: RegisterRequest) -> dict[str, str]:
     try:
-        result = sign_up_user(payload.email, payload.password, payload.username)
+        result = sign_up_user(
+            payload.email, payload.password, payload.username
+        )
         return result
     except AuthApiError as e:
         raise HTTPException(
@@ -218,8 +279,9 @@ def post_register(payload: RegisterRequest):
             detail=f"Internal server error: {str(e)}"
         )
 
+
 @router.post("/login", response_model=LoginResponse)
-def post_login(payload: LoginRequest):
+def post_login(payload: LoginRequest) -> dict[str, str]:
     try:
         result = login_user(payload.email, payload.password)
         return result

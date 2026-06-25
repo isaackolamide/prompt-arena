@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 
+interface AuthUser {
+  email: string;
+  username: string;
+}
+
 export default function App() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
@@ -9,7 +14,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
 
   const [status, setStatus] = useState('Welcome to Prompt Arena');
-  const [user, setUser] = useState<{ email: string; username: string } | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   const BACKEND_URL = 'http://localhost:8000';
 
@@ -33,8 +38,9 @@ export default function App() {
       } else {
         setStatus(`Error: ${data.detail || 'Registration failed'}`);
       }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus(`Error: ${msg}`);
     }
   };
 
@@ -58,9 +64,35 @@ export default function App() {
       } else {
         setStatus(`Error: ${data.detail || 'Login failed'}`);
       }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus(`Error: ${msg}`);
     }
+  };
+
+  const getStatusStyles = () => {
+    if (status.startsWith('Error:')) {
+      return {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        border: '1px solid rgba(239, 68, 68, 0.2)',
+        color: '#f87171',
+      };
+    }
+    const isSuccess =
+      status.startsWith('Registration successful') ||
+      status.startsWith('Logged in as');
+    if (isSuccess) {
+      return {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        border: '1px solid rgba(16, 185, 129, 0.2)',
+        color: '#34d399',
+      };
+    }
+    return {
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      border: '1px solid rgba(59, 130, 246, 0.2)',
+      color: '#60a5fa',
+    };
   };
 
   return (
@@ -86,17 +118,27 @@ export default function App() {
         border: '1px solid rgba(255, 255, 255, 0.1)',
         textAlign: 'center'
       }}>
-        <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '2.5rem', fontWeight: 700, background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h1 style={{
+          margin: '0 0 0.5rem 0',
+          fontSize: '2.5rem',
+          fontWeight: 700,
+          background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>
           Prompt Arena
         </h1>
-        <p id="welcome-message" style={{ color: '#9ca3af', margin: '0 0 2rem 0' }}>Welcome to Prompt Arena</p>
+        <p id="welcome-message" style={{
+          color: '#9ca3af',
+          margin: '0 0 2rem 0'
+        }}>
+          Welcome to Prompt Arena
+        </p>
         
         <div id="auth-status" style={{
           padding: '1rem',
           borderRadius: '8px',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
-          color: '#60a5fa',
+          ...getStatusStyles(),
           marginBottom: '2rem',
           fontWeight: 500,
           wordBreak: 'break-all'
@@ -106,7 +148,9 @@ export default function App() {
 
         {user ? (
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Welcome, {user.username || user.email}!</h2>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+              Welcome, {user.username || user.email}!
+            </h2>
             <button 
               id="logout-button"
               onClick={() => {
@@ -131,10 +175,27 @@ export default function App() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Login Section */}
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.5rem' }}>Sign In</h3>
+            <form
+              onSubmit={handleLogin}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                textAlign: 'left'
+              }}
+            >
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.25rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingBottom: '0.5rem'
+              }}>
+                Sign In
+              </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="login-email" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Email</label>
+                <label htmlFor="login-email" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                  Email
+                </label>
                 <input
                   id="login-email"
                   type="email"
@@ -152,7 +213,9 @@ export default function App() {
                 />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="login-password" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Password</label>
+                <label htmlFor="login-password" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                  Password
+                </label>
                 <input
                   id="login-password"
                   type="password"
@@ -188,10 +251,30 @@ export default function App() {
             </form>
 
             {/* Register Section */}
-            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.5rem' }}>Register</h3>
+            <form
+              onSubmit={handleRegister}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                textAlign: 'left'
+              }}
+            >
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.25rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingBottom: '0.5rem'
+              }}>
+                Register
+              </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="register-username" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Username</label>
+                <label
+                  htmlFor="register-username"
+                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
+                >
+                  Username
+                </label>
                 <input
                   id="register-username"
                   type="text"
@@ -209,7 +292,12 @@ export default function App() {
                 />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="register-email" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Email</label>
+                <label
+                  htmlFor="register-email"
+                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
+                >
+                  Email
+                </label>
                 <input
                   id="register-email"
                   type="email"
@@ -227,7 +315,12 @@ export default function App() {
                 />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="register-password" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Password</label>
+                <label
+                  htmlFor="register-password"
+                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
+                >
+                  Password
+                </label>
                 <input
                   id="register-password"
                   type="password"

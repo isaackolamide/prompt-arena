@@ -101,7 +101,7 @@
 - Dependencies: Task 3.1
 
 ### Task 3.3: Playwright E2E Test Suite targeting Compose Frontend
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `frontend/e2e/auth.spec.ts` (modify), `Makefile` (modify)
 - Interfaces: produces none; consumes none

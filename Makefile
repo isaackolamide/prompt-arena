@@ -21,7 +21,7 @@ setup:
 	fi
 	@if [ -f frontend/package.json ]; then \
 		echo "Installing React frontend dependencies..."; \
-		cd frontend && npm install; \
+		cd frontend && npm install && npx playwright install; \
 	fi
 
 # Build: sets up directories, builds sandbox container image

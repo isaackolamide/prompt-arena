@@ -232,3 +232,7 @@ pnpm-debug.log*
 lerna-debug.log*
 .vitest/
 coverage/
+
+# Playwright
+**/playwright-report/
+**/test-results/

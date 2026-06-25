@@ -31,7 +31,7 @@
 - Dependencies: Task 1.1
 
 ### Task 1.3: Playwright Integration and Configuration
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `frontend/package.json` (modify), `frontend/playwright.config.ts` (create), `frontend/e2e/auth.spec.ts` (create)
 - Interfaces: produces none; consumes none

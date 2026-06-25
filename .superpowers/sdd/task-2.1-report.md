@@ -1,73 +1,30 @@
-# Task 2.1 Report: Write Root Docker Compose Configuration
+# Task 2.1: Frontend Auth State and API Logic - Report
 
-## What Was Implemented
+## What was implemented
+- **Removed Password States, Functions, and Forms**: Completely cleaned up `frontend/src/App.tsx` by removing password-based registration and login states (`registerEmail`, `registerUsername`, `registerPassword`, `loginEmail`, `loginPassword`), legacy functions (`handleRegister`, `handleLogin`), and forms.
+- **Added Magic Link / OTP State**: Introduced states:
+  - `email` (string)
+  - `token` (string)
+  - `step` (`'request-otp' | 'verify-otp'`)
+- **Implemented API Logic**:
+  - `handleRequestOtp(email: string): Promise<void>`: Sends `POST` request to `/api/auth/magic-link`. Upon success, moves the screen to OTP verification by setting `step` to `'verify-otp'`.
+  - `handleVerifyOtp(email: string, token: string): Promise<void>`: Sends `POST` request to `/api/auth/verify`. Upon success, sets `user` state `{ email }` and displays the authenticated welcome dashboard.
+- **Refactored Markup**:
+  - Displays authenticated welcome dashboard when `user` is set.
+  - Toggles between Magic Link email request screen (`step === 'request-otp'`) and OTP input verification screen (`step === 'verify-otp'`) when `user` is null.
+  - Provided unique IDs for the input and button elements (`#email-input`, `#otp-input`, `#submit-email-button`, `#submit-otp-button`, `#auth-status`, `#logout-button`).
+- **Ensured Type Safety**: Resolved compiler unused variable warning by only importing `useState` from `'react'`, keeping typescript compiling strictly with zero type escapes or warnings.
 
-1. **Backend Dockerfile (`backend/Dockerfile`)**:
-   - Used `python:3.11-slim` as the base image for runtime efficiency.
-   - Installed build dependencies (`build-essential`) for compiling binary packages if needed.
-   - Copied `requirements.txt` and installed all python packages.
-   - Set command to run FastAPI using `uvicorn` with hot-reload enabled: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`.
-
-2. **Backend Dockerignore (`backend/.dockerignore`)**:
-   - Excluded `.venv/`, `__pycache__/`, `.pytest_cache/`, and `.ruff_cache/` to ensure local environments and compiler caches are not sent to the Docker daemon.
-
-3. **Frontend Dockerfile (`frontend/Dockerfile`)**:
-   - Used `node:20-alpine` as the base image for a lightweight React container.
-   - Installed npm dependencies inside the container.
-   - Exposed development port `5173`.
-   - Set CMD to `npm run dev`.
-
-4. **Frontend Dockerignore (`frontend/.dockerignore`)**:
-   - Excluded `node_modules/`, build outputs (`dist/`), and test/coverage reports.
-   - Prevents host-bound `node_modules` (potentially built for macOS/Windows architectures) from overriding the clean Alpine Linux packages installed inside the container, avoiding runtime engine mismatches.
-
-5. **Vite Development Server Update (`frontend/vite.config.ts`)**:
-   - Added a `server` block configuring the Vite development server to listen on host `0.0.0.0` and port `5173`.
-   - Enabled filesystem polling (`watch: { usePolling: true }`) to ensure hot-module replacement (HMR) operates correctly within Docker container file mounts on macOS host systems.
-
-6. **Root Docker Compose Configuration (`docker-compose.yml`)**:
-   - Configured `backend` and `frontend` services mapping the host folders to `/app` for active source code live-reloading.
-   - Isolated host-specific dependencies using anonymous volume `/app/node_modules` for the frontend.
-   - Configured `env_file: - .env` to pass git-ignored credentials at runtime.
-   - Configured `extra_hosts` to map `host.docker.internal` to the host gateway (`host-gateway`) for backend-to-host emulator networking compatibility.
-   - Set custom `SUPABASE_URL=http://host.docker.internal:54321` inside the backend environment to override localhost and point directly to the host-bound Supabase emulator services.
-
-## Verification & Test Results
-
-1. **Docker Compose Launch**:
-   - Started the services using `docker compose up --build -d`.
-   - Both containers built and started successfully.
-
-2. **Container Status Check**:
-   - Checked running containers via `docker compose ps`.
-   - Result:
-     - `prompt-arena-backend-1` is `Up` and listening on port `8000`.
-     - `prompt-arena-frontend-1` is `Up` and listening on port `5173`.
-
-3. **Backend Health Check**:
-   - Polled `http://localhost:8000/health`.
-   - Result: HTTP `200 OK` with JSON `{"status":"ok","environment":"development"}`.
-
-4. **Regressions Validation**:
-   - Ran `make test` on the host to verify no test suite regressions.
-   - Result: All 29 backend tests and 1 frontend test passed successfully.
+## What was tested and test results
+- **Frontend Build**: Verified with `cd frontend && npm run build` which succeeded cleanly.
+- **Unit Tests**: Ran `make test` which executed Vitest frontend tests and Pytest backend tests, all passing successfully (33 tests total).
 
 ## Files Changed
+- `frontend/src/App.tsx`
 
-- [backend/Dockerfile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/Dockerfile) (Created)
-- [backend/.dockerignore](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/.dockerignore) (Created)
-- [frontend/Dockerfile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/Dockerfile) (Created)
-- [frontend/.dockerignore](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/.dockerignore) (Created)
-- [frontend/vite.config.ts](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/vite.config.ts) (Modified)
-- [docker-compose.yml](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/docker-compose.yml) (Created)
+## Self-review findings
+- The component is clean, fits the requirements perfectly, preserves existing styling, and successfully integrates the state tracking with the expected REST routes.
+- The UI handles errors gracefully by using try-catch blocks and parsing the standard FastAPI JSON response payload.
 
-## Self-Review Findings
-
-- **Dev Warning Cleaned Up**: Removed the obsolete `version: '3.8'` line from `docker-compose.yml` to prevent standard compose parser warnings.
-- **Hot-Reloading Working**: Verified both uvicorn `--reload` flag and Vite polling watch configuration ensure code edits reflect inside containers instantly.
-- **Secrets Isolated**: All credentials are successfully passed dynamically via the git-ignored `.env` file via `env_file` without committing keys.
-- **Dockerignore Added**: Ensured proper `.dockerignore` files prevent host dependency contamination and reduce context upload size.
-
-## Issues or Concerns
-
-- None. The development environment compiles, boots, and routes correctly.
+## Issues or concerns
+- None.

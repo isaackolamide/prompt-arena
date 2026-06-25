@@ -1,42 +1,33 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 interface AuthUser {
   email: string;
-  username: string;
 }
 
 export default function App() {
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerUsername, setRegisterUsername] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
+  const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
+  const [step, setStep] = useState<'request-otp' | 'verify-otp'>('request-otp');
   const [status, setStatus] = useState('Welcome to Prompt Arena');
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('Registering...');
+  const handleRequestOtp = async (email: string): Promise<void> => {
+    setStatus('Sending magic link...');
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/magic-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: registerEmail,
-          password: registerPassword,
-          username: registerUsername,
-        }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setStatus('Registration successful');
+        setStatus('Magic link sent successfully. Please check your inbox.');
+        setStep('verify-otp');
       } else {
-        setStatus(`Error: ${data.detail || 'Registration failed'}`);
+        setStatus(`Error: ${data.detail || 'Failed to send magic link'}`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -44,25 +35,21 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('Logging in...');
+  const handleVerifyOtp = async (email: string, token: string): Promise<void> => {
+    setStatus('Verifying OTP...');
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: loginEmail,
-          password: loginPassword,
-        }),
+        body: JSON.stringify({ email, token }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setUser({ email: data.email, username: data.username });
-        setStatus(`Logged in as ${data.email}`);
+        setUser({ email });
+        setStatus(`Logged in as ${email}`);
       } else {
-        setStatus(`Error: ${data.detail || 'Login failed'}`);
+        setStatus(`Error: ${data.detail || 'OTP verification failed'}`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -79,7 +66,7 @@ export default function App() {
       };
     }
     const isSuccess =
-      status.startsWith('Registration successful') ||
+      status.startsWith('Magic link sent successfully') ||
       status.startsWith('Logged in as');
     if (isSuccess) {
       return {
@@ -149,12 +136,15 @@ export default function App() {
         {user ? (
           <div>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
-              Welcome, {user.username || user.email}!
+              Welcome, {user.email}!
             </h2>
             <button 
               id="logout-button"
               onClick={() => {
                 setUser(null);
+                setEmail('');
+                setToken('');
+                setStep('request-otp');
                 setStatus('Welcome to Prompt Arena');
               }}
               style={{
@@ -174,186 +164,143 @@ export default function App() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            {/* Login Section */}
-            <form
-              onSubmit={handleLogin}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                textAlign: 'left'
-              }}
-            >
-              <h3 style={{
-                margin: 0,
-                fontSize: '1.25rem',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                paddingBottom: '0.5rem'
-              }}>
-                Sign In
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="login-email" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                  Email
-                </label>
-                <input
-                  id="login-email"
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor="login-password" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                  Password
-                </label>
-                <input
-                  id="login-password"
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-              <button
-                id="login-submit"
-                type="submit"
+            {step === 'request-otp' ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRequestOtp(email);
+                }}
                 style={{
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
-                  color: 'white',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginTop: '0.5rem'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                  textAlign: 'left'
                 }}
               >
-                Sign In
-              </button>
-            </form>
-
-            {/* Register Section */}
-            <form
-              onSubmit={handleRegister}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                textAlign: 'left'
-              }}
-            >
-              <h3 style={{
-                margin: 0,
-                fontSize: '1.25rem',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                paddingBottom: '0.5rem'
-              }}>
-                Register
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label
-                  htmlFor="register-username"
-                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
-                >
-                  Username
-                </label>
-                <input
-                  id="register-username"
-                  type="text"
-                  required
-                  value={registerUsername}
-                  onChange={(e) => setRegisterUsername(e.target.value)}
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '1.25rem',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                  paddingBottom: '0.5rem'
+                }}>
+                  Sign In
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label htmlFor="email-input" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                    Email
+                  </label>
+                  <input
+                    id="email-input"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={{
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                      color: 'white',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <button
+                  id="submit-email-button"
+                  type="submit"
                   style={{
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    border: 'none',
+                    background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
                     color: 'white',
-                    outline: 'none'
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginTop: '0.5rem'
                   }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label
-                  htmlFor="register-email"
-                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
                 >
-                  Email
-                </label>
-                <input
-                  id="register-email"
-                  type="email"
-                  required
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label
-                  htmlFor="register-password"
-                  style={{ fontSize: '0.875rem', color: '#9ca3af' }}
-                >
-                  Password
-                </label>
-                <input
-                  id="register-password"
-                  type="password"
-                  required
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-              <button
-                id="register-submit"
-                type="submit"
+                  Send Magic Link
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleVerifyOtp(email, token);
+                }}
                 style={{
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'linear-gradient(90deg, #8b5cf6, #7c3aed)',
-                  color: 'white',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginTop: '0.5rem'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                  textAlign: 'left'
                 }}
               >
-                Register
-              </button>
-            </form>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '1.25rem',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                  paddingBottom: '0.5rem'
+                }}>
+                  Verify OTP
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label htmlFor="otp-input" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                    One-Time Password / Token
+                  </label>
+                  <input
+                    id="otp-input"
+                    type="text"
+                    required
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    style={{
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                      color: 'white',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <button
+                  id="submit-otp-button"
+                  type="submit"
+                  style={{
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(90deg, #8b5cf6, #7c3aed)',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginTop: '0.5rem'
+                  }}
+                >
+                  Verify OTP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('request-otp');
+                    setToken('');
+                    setStatus('Welcome to Prompt Arena');
+                  }}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'transparent',
+                    color: '#9ca3af',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    transition: 'color 0.2s'
+                  }}
+                >
+                  Back to Sign In
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>

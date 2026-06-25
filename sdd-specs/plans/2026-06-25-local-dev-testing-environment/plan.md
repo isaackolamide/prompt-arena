@@ -42,7 +42,7 @@
 - Dependencies: Task 1.2
 
 ### Checkpoint — Phase 1
-- [ ] Local Supabase initialized, Playwright installed, and Makefile setup targets integrated.
+- [x] Local Supabase initialized, Playwright installed, and Makefile setup targets integrated.
 - Verification: Run `make setup` and ensure all host dependencies and Playwright are installed without errors.
 
 ---

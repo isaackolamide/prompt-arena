@@ -72,7 +72,7 @@
 - Dependencies: Task 2.1
 
 ### Checkpoint — Phase 2
-- [ ] Local fullstack dev environment builds, starts, and tears down via single Makefile targets.
+- [x] Local fullstack dev environment builds, starts, and tears down via single Makefile targets.
 - Verification: Run `make start` followed by `make stop`.
 
 ---

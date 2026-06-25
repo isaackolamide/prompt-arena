@@ -28,19 +28,24 @@ def run_migrations_on_test_db(conn_str: str) -> None:
     """
 
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    migration_path = os.path.join(
-        base_dir, "supabase", "migrations", "20260625000000_init_schema.sql"
-    )
+    migration_dir = os.path.join(base_dir, "supabase", "migrations")
 
-    with open(migration_path, "r", encoding="utf-8") as f:
-        migration_sql = f.read()
+    migration_files = []
+    if os.path.exists(migration_dir):
+        migration_files = sorted([
+            f for f in os.listdir(migration_dir) if f.endswith(".sql")
+        ])
 
     conn = psycopg2.connect(conn_str)
     try:
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute(mock_auth_sql)
-            cur.execute(migration_sql)
+            for file_name in migration_files:
+                file_path = os.path.join(migration_dir, file_name)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    migration_sql = f.read()
+                cur.execute(migration_sql)
     finally:
         conn.close()
 

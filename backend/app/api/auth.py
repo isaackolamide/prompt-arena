@@ -272,11 +272,11 @@ def post_register(payload: RegisterRequest) -> dict[str, str]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Auth error: {e.message}"
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during registration")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
+            detail="Internal server error"
         )
 
 

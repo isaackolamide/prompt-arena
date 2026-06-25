@@ -1,4 +1,4 @@
-.PHONY: setup build test lint dev clean
+.PHONY: setup build test lint dev clean start stop
 
 # Default target
 all: build
@@ -71,6 +71,21 @@ dev:
 	@echo "=== Starting dev environment ==="
 	@echo "To run backend: uvicorn app.main:app --reload --port 8000"
 	@echo "To run frontend: cd frontend && npm run dev"
+
+start:
+	@echo "=== Starting Supabase Local Emulator ==="
+	@npx supabase start || (echo "\n[ERROR] npx supabase start failed to run or apply migrations.\nTraceback/Details:\n- Check if Docker is running.\n- Verify supabase configuration files.\n- Review supabase/migrations/ files for SQL errors." && exit 1)
+	@echo "=== Building and Starting Docker Containers ==="
+	@docker compose up -d --build || (echo "\n[ERROR] docker compose up -d --build failed to compile or start containers.\nTraceback/Details:\n- Check docker compose build logs.\n- Verify docker configuration and ports." && exit 1)
+	@echo "=== Local Dev Environment Started Successfully ==="
+
+stop:
+	@echo "=== Stopping Local Dev Environment ==="
+	@echo "Stopping Docker containers..."
+	@docker compose down || true
+	@echo "Stopping Supabase Local Emulator..."
+	@npx supabase stop || true
+	@echo "=== Local Dev Environment Stopped ==="
 
 clean:
 	@echo "=== Cleaning up build artifacts ==="

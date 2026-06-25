@@ -8,17 +8,24 @@
    - Copied `requirements.txt` and installed all python packages.
    - Set command to run FastAPI using `uvicorn` with hot-reload enabled: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`.
 
-2. **Frontend Dockerfile (`frontend/Dockerfile`)**:
+2. **Backend Dockerignore (`backend/.dockerignore`)**:
+   - Excluded `.venv/`, `__pycache__/`, `.pytest_cache/`, and `.ruff_cache/` to ensure local environments and compiler caches are not sent to the Docker daemon.
+
+3. **Frontend Dockerfile (`frontend/Dockerfile`)**:
    - Used `node:20-alpine` as the base image for a lightweight React container.
    - Installed npm dependencies inside the container.
    - Exposed development port `5173`.
    - Set CMD to `npm run dev`.
 
-3. **Vite Development Server Update (`frontend/vite.config.ts`)**:
+4. **Frontend Dockerignore (`frontend/.dockerignore`)**:
+   - Excluded `node_modules/`, build outputs (`dist/`), and test/coverage reports.
+   - Prevents host-bound `node_modules` (potentially built for macOS/Windows architectures) from overriding the clean Alpine Linux packages installed inside the container, avoiding runtime engine mismatches.
+
+5. **Vite Development Server Update (`frontend/vite.config.ts`)**:
    - Added a `server` block configuring the Vite development server to listen on host `0.0.0.0` and port `5173`.
    - Enabled filesystem polling (`watch: { usePolling: true }`) to ensure hot-module replacement (HMR) operates correctly within Docker container file mounts on macOS host systems.
 
-4. **Root Docker Compose Configuration (`docker-compose.yml`)**:
+6. **Root Docker Compose Configuration (`docker-compose.yml`)**:
    - Configured `backend` and `frontend` services mapping the host folders to `/app` for active source code live-reloading.
    - Isolated host-specific dependencies using anonymous volume `/app/node_modules` for the frontend.
    - Configured `env_file: - .env` to pass git-ignored credentials at runtime.
@@ -48,7 +55,9 @@
 ## Files Changed
 
 - [backend/Dockerfile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/Dockerfile) (Created)
+- [backend/.dockerignore](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/backend/.dockerignore) (Created)
 - [frontend/Dockerfile](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/Dockerfile) (Created)
+- [frontend/.dockerignore](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/.dockerignore) (Created)
 - [frontend/vite.config.ts](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/frontend/vite.config.ts) (Modified)
 - [docker-compose.yml](file:///Users/isaac-bp/Documents/Projects/grow/prompt-arena/docker-compose.yml) (Created)
 
@@ -57,6 +66,7 @@
 - **Dev Warning Cleaned Up**: Removed the obsolete `version: '3.8'` line from `docker-compose.yml` to prevent standard compose parser warnings.
 - **Hot-Reloading Working**: Verified both uvicorn `--reload` flag and Vite polling watch configuration ensure code edits reflect inside containers instantly.
 - **Secrets Isolated**: All credentials are successfully passed dynamically via the git-ignored `.env` file via `env_file` without committing keys.
+- **Dockerignore Added**: Ensured proper `.dockerignore` files prevent host dependency contamination and reduce context upload size.
 
 ## Issues or Concerns
 

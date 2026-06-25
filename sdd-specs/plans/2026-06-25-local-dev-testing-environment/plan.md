@@ -117,4 +117,4 @@
 ---
 
 ## Plan Code Review
-- [ ] Feature plan code review passed
+- [x] Feature plan code review passed

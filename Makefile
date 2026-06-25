@@ -1,4 +1,4 @@
-.PHONY: setup build test test-unit test-integration lint dev clean start stop
+.PHONY: setup build test test-unit test-integration test-e2e lint dev clean start stop
 
 # Default target
 all: build
@@ -66,6 +66,10 @@ test-unit:
 test-integration:
 	@echo "=== Running database integration tests ==="
 	python3 -m pytest backend/tests/integration/
+
+test-e2e:
+	@echo "=== Running E2E tests ==="
+	cd frontend && npx playwright test
 
 
 lint:

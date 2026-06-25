@@ -133,4 +133,69 @@ def test_verify_otp_invalid_email():
     errors = response.json()["detail"]
     assert any(err["loc"] == ["body", "email"] for err in errors)
 
+def test_register_success(mock_supabase):
+    # Setup mock for sign_up
+    mock_auth_res = MagicMock()
+    mock_user = MagicMock()
+    mock_user.id = "user-uuid-123"
+    mock_auth_res.user = mock_user
+    mock_supabase.auth.sign_up.return_value = mock_auth_res
 
+    # Call endpoint
+    payload = {"email": "test@example.com", "password": "password123", "username": "testuser"}
+    response = client.post("/api/auth/register", json=payload)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"status": "success", "user_id": "user-uuid-123"}
+    mock_supabase.auth.sign_up.assert_called_once_with({
+        "email": "test@example.com",
+        "password": "password123",
+        "options": {
+            "data": {
+                "username": "testuser"
+            }
+        }
+    })
+
+def test_register_failure(mock_supabase):
+    # Setup mock to raise AuthApiError
+    mock_supabase.auth.sign_up.side_effect = AuthApiError("User already exists", 400, "user_exists")
+
+    payload = {"email": "test@example.com", "password": "password123", "username": "testuser"}
+    response = client.post("/api/auth/register", json=payload)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Auth error" in response.json()["detail"]
+
+def test_login_success(mock_supabase):
+    # Setup mock for sign_in_with_password
+    mock_auth_res = MagicMock()
+    mock_session = MagicMock()
+    mock_session.access_token = "mock-jwt-token"
+    mock_user = MagicMock()
+    mock_user.email = "alice@example.com"
+    mock_user.user_metadata = {"username": "alice"}
+    mock_auth_res.session = mock_session
+    mock_auth_res.user = mock_user
+    mock_supabase.auth.sign_in_with_password.return_value = mock_auth_res
+
+    # Call endpoint
+    payload = {"email": "alice@example.com", "password": "password123"}
+    response = client.post("/api/auth/login", json=payload)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "access_token": "mock-jwt-token",
+        "email": "alice@example.com",
+        "username": "alice"
+    }
+    mock_supabase.auth.sign_in_with_password.assert_called_once_with({
+        "email": "alice@example.com",
+        "password": "password123"
+    })
+
+def test_login_failure(mock_supabase):
+    # Setup mock to raise AuthApiError
+    mock_supabase.auth.sign_in_with_password.side_effect = AuthApiError("Invalid login credentials", 400, "invalid_credentials")
+
+    payload = {"email": "alice@example.com", "password": "wrongpassword"}
+    response = client.post("/api/auth/login", json=payload)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "Auth verification failed" in response.json()["detail"]

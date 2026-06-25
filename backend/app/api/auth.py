@@ -89,11 +89,17 @@ def verify_otp(email: str, token: str) -> dict[str, str]:
     logger.info(f"Attempting to verify OTP for email: {mask_email(email)}")
     client = get_supabase_client()
     try:
-        res = client.auth.verify_otp({
-            "email": email,
-            "token": token,
-            "type": "magiclink"
-        })
+        if len(token) > 10:
+            res = client.auth.verify_otp({
+                "token_hash": token,
+                "type": "magiclink"
+            })
+        else:
+            res = client.auth.verify_otp({
+                "email": email,
+                "token": token,
+                "type": "magiclink"
+            })
         if not res or not res.session:
             logger.error(
                 f"No session returned for {mask_email(email)} "

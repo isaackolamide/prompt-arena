@@ -76,7 +76,7 @@
 - Dependencies: Task 2.1
 
 ### Task 2.3: End-to-End Authentication Tests
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `frontend/e2e/auth.spec.ts` (create)
 - Interfaces: none (E2E test suite)

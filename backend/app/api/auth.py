@@ -1,12 +1,17 @@
 import logging
 import time
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field, EmailStr
 from app.db.supabase import get_supabase_client
 try:
     from gotrue.errors import AuthApiError
 except ModuleNotFoundError:
     from supabase_auth.errors import AuthApiError
+from app.schemas.auth import (
+    MagicLinkRequest,
+    MagicLinkResponse,
+    VerifyRequest,
+    VerifyResponse,
+)
 
 logger = logging.getLogger("app")
 
@@ -37,23 +42,6 @@ class SessionCreationError(Exception):
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-class MagicLinkRequest(BaseModel):
-    email: EmailStr = Field(..., description="The user's email address")
-
-
-class MagicLinkResponse(BaseModel):
-    status: str = Field(..., description="The status of the magic link request")
-
-
-class VerifyRequest(BaseModel):
-    email: EmailStr = Field(..., description="The user's email address")
-    token: str = Field(..., description="The OTP/token received by the user")
-
-
-class VerifyResponse(BaseModel):
-    access_token: str = Field(..., description="The access token for auth")
 
 
 

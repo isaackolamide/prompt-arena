@@ -28,7 +28,7 @@
 - Dependencies: none
 
 ### Checkpoint — Phase 1
-- [ ] Schemas package is successfully created and imports execute cleanly.
+- [x] Schemas package is successfully created and imports execute cleanly.
 - Verification: `python -c "from app.schemas.auth import MagicLinkRequest"`
 
 ---

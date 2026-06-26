@@ -6,7 +6,7 @@ try:
     from gotrue.errors import AuthApiError
 except ModuleNotFoundError:
     from supabase_auth.errors import AuthApiError
-from app.schemas.auth import (
+from app.schemas import (
     MagicLinkRequest,
     MagicLinkResponse,
     VerifyRequest,

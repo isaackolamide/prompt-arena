@@ -23,8 +23,8 @@
 **Goal**: Build the LLM token calculation proxy and deploy the live AWS Lambda runner.
 
 ### Milestones
-- [ ] Gemini LLM Proxy [sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md](sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md)
-  - [ ] Create the Python Gemini LLM proxy measuring and enforcing token budgets
+- [x] Gemini LLM Proxy [sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md](sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md)
+  - [x] Create the Python Gemini LLM proxy measuring and enforcing token budgets
 - [ ] AWS Lambda Sandbox Runner [sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md](sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md)
   - [ ] Deploy the AWS Lambda Firecracker sandbox runner packaging Python/Node environments
 

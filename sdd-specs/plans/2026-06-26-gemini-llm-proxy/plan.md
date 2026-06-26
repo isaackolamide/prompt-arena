@@ -100,7 +100,7 @@
 - Dependencies: Task 1.1, Task 2.1
 
 ### Task 3.2: FastAPI Router / Endpoint
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: M
 - Files:
   - `backend/app/api/challenges.py` (create)
@@ -119,7 +119,7 @@
 - Dependencies: Task 2.2, Task 3.1
 
 ### Checkpoint — Phase 3
-- [ ] Full proxy flow is verified and both unit and integration tests pass successfully.
+- [x] Full proxy flow is verified and both unit and integration tests pass successfully.
 - Verification: Run `make test`
 
 ---

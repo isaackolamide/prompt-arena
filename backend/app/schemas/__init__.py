@@ -4,10 +4,17 @@ from app.schemas.auth import (
     VerifyRequest,
     VerifyResponse,
 )
+from app.schemas.challenges import (
+    PromptRequest,
+    PromptResponse,
+)
 
 __all__ = [
     "MagicLinkRequest",
     "MagicLinkResponse",
     "VerifyRequest",
     "VerifyResponse",
+    "PromptRequest",
+    "PromptResponse",
 ]
+

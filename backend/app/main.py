@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.auth import router as auth_router
+from app.api.challenges import router as challenges_router
 
 logger = logging.getLogger("app")
 
@@ -21,10 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include the auth router
+# Include routers
 app.include_router(auth_router)
+app.include_router(challenges_router)
 
 @app.get("/health")
 async def health_check():
     logger.info("Health check endpoint hit")
     return {"status": "ok", "environment": settings.ENV}
+

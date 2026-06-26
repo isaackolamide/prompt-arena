@@ -45,7 +45,7 @@
 ## Phase 2: Dependency & Auth Guard Setup
 
 ### Task 2.1: Dependencies & Settings Config
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   - `backend/requirements.txt` (modify)

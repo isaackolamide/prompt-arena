@@ -12,6 +12,7 @@ class Settings(BaseModel):
     SUPABASE_SERVICE_ROLE_KEY: str = Field(default_factory=lambda: os.getenv("SUPABASE_SERVICE_ROLE_KEY", "mock-service-role-key"))
     ENV: str = Field(default_factory=lambda: os.getenv("ENV", "development"))
     PORT: int = Field(default_factory=lambda: int(os.getenv("PORT", "8000")))
+    GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
 
 settings = Settings()
 

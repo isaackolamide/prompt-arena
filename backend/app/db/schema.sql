@@ -122,6 +122,7 @@ create table public.game_sessions (
     challenge_id uuid not null references public.challenges(id) on delete cascade,
     
     status text default 'in_progress' not null,
+    token_budget integer default 0 not null,
     
     -- Game session time boundaries
     started_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -134,6 +135,7 @@ create table public.game_sessions (
     -- Constraints
     constraint check_status check (status in ('in_progress', 'completed', 'failed', 'timed_out')),
     constraint ended_after_started check (ended_at is null or ended_at >= started_at),
+    constraint token_budget_nonnegative check (token_budget >= 0),
     -- Prevent duplicate play attempts per challenge for the same user
     constraint unique_profile_challenge unique (profile_id, challenge_id)
 );
@@ -251,6 +253,25 @@ create trigger set_challenges_updated_at
 create trigger set_game_sessions_updated_at
     before update on public.game_sessions
     for each row execute procedure public.set_updated_at();
+
+-- Stored Function: Atomic token deduction from session budget
+create or replace function public.deduct_session_budget(session_id uuid, tokens_to_deduct int)
+returns int as $$
+declare
+    new_budget int;
+begin
+    update public.game_sessions
+    set token_budget = token_budget - tokens_to_deduct
+    where id = session_id and token_budget >= tokens_to_deduct
+    returning token_budget into new_budget;
+    
+    if not found then
+        raise exception 'Insufficient token budget or session not found';
+    end if;
+    
+    return new_budget;
+end;
+$$ language plpgsql security definer set search_path = public;
 
 -- Trigger: Automatically provision a profile when a new user signs up via Supabase Auth
 create or replace function public.handle_new_user()

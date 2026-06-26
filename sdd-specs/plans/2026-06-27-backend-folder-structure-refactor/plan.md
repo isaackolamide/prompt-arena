@@ -47,7 +47,7 @@
 - Dependencies: Task 1.1
 
 ### Task 2.2: Update Backend Test Suite Imports
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files: `backend/tests/test_auth.py` (modify), `backend/tests/test_executor.py` (modify)
 - Interfaces:

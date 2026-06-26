@@ -1,4 +1,4 @@
-from backend.app.services.executor import execute_code_locally
+from app.services.executor import execute_code_locally
 import requests
 
 def test_python_success():
@@ -112,7 +112,7 @@ def test_executor_json_extraction_and_sanitization():
         polluted_stdout.encode("utf-8") if stdout else b"mocked stderr logs"
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     # Check that it extracted the last line and coerced "true" to True, and 1 to True
@@ -140,7 +140,7 @@ def test_executor_fallback_greedy_and_entire_string():
         stdout_case_a.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
     assert res["passed"] is True
     assert res["stdout"] == "ok"
@@ -151,7 +151,7 @@ def test_executor_fallback_greedy_and_entire_string():
         stdout_case_b.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
     assert res["passed"] is True
     assert res["stdout"] == "entire"
@@ -168,7 +168,7 @@ def test_executor_parsing_failure():
         stdout_invalid.encode("utf-8") if stdout else b"some error"
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
     assert res["passed"] is False
     assert res["stdout"] == "This is not json { at all"
@@ -179,14 +179,14 @@ def test_executor_parsing_failure():
 def test_get_docker_client_thread_safety():
     from unittest.mock import patch
     import threading
-    import backend.app.services.executor
-    from backend.app.services.executor import get_docker_client
+    import app.services.executor
+    from app.services.executor import get_docker_client
     
     with patch("docker.from_env") as mock_from_env:
         mock_from_env.return_value = "mock_client"
         
         # Reset singleton state
-        backend.app.services.executor._docker_client = None
+        app.services.executor._docker_client = None
         
         clients = []
         threads = []
@@ -215,7 +215,7 @@ def test_docker_exception_handling():
     # Mock containers.run to raise DockerException
     mock_client.containers.run.side_effect = docker.errors.DockerException("Mocked Docker error")
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="print('hello')", language="python", test_suite="")
         
     assert res["passed"] is False
@@ -238,7 +238,7 @@ def test_executor_requests_timeout_handling():
         b"mocked stdout logs" if stdout else b"mocked stderr logs"
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -262,7 +262,7 @@ def test_executor_parsing_failure_exit_0_empty_stderr():
         stdout_invalid.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -285,7 +285,7 @@ def test_executor_parsing_failure_exit_non_zero_empty_stderr():
         stdout_invalid.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -308,7 +308,7 @@ def test_executor_wait_api_error():
     api_error = docker.errors.APIError("Connection lost", response=None)
     mock_container.wait.side_effect = api_error
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -336,7 +336,7 @@ def test_executor_ignores_invalid_user_json():
         polluted_stdout_no_test_results.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -351,7 +351,7 @@ def test_executor_ignores_invalid_user_json():
         polluted_stdout_invalid_test_results_type.encode("utf-8") if stdout else b""
     )
     
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         res = execute_code_locally(code="dummy", language="python", test_suite="dummy")
         
     assert res["passed"] is False
@@ -386,7 +386,7 @@ def test_executor_sandbox_process_limits():
     mock_container.wait.return_value = {"StatusCode": 0}
     mock_container.logs.return_value = b'{"passed": true, "test_results": []}'
 
-    with patch("backend.app.services.executor.get_docker_client", return_value=mock_client):
+    with patch("app.services.executor.get_docker_client", return_value=mock_client):
         execute_code_locally(code="print(1)", language="python", test_suite="dummy")
 
     # Assert that client.containers.run was called with pids_limit=50

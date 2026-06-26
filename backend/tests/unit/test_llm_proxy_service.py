@@ -17,11 +17,11 @@ def anyio_backend():
 
 @pytest.fixture
 def mock_supabase():
-    with patch(
-        "app.services.llm_proxy.get_supabase_client"
-    ) as mock_get_client:
+    with patch("app.services.llm_proxy.get_supabase_client") as mock_get_client, \
+         patch("app.services.llm_proxy.get_supabase_admin_client") as mock_get_admin_client:
         client = MagicMock()
         mock_get_client.return_value = client
+        mock_get_admin_client.return_value = client
         yield client
 
 
@@ -205,6 +205,23 @@ async def test_execute_prompt_too_long(
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "exceeds maximum length" in exc_info.value.detail
     mock_supabase.table.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_execute_prompt_empty_or_whitespace(
+    mock_supabase, mock_genai, mock_settings
+):
+    session_id = uuid.uuid4()
+
+    for empty_prompt in ["", "   ", "\n \t  "]:
+        with pytest.raises(HTTPException) as exc_info:
+            await execute_prompt(
+                session_id=session_id, prompt=empty_prompt, user_id="user-uuid"
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "cannot be empty or whitespace-only" in exc_info.value.detail
+        mock_supabase.table.assert_not_called()
 
 
 @pytest.mark.anyio

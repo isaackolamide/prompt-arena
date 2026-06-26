@@ -237,6 +237,20 @@ begin
 end;
 $$ language plpgsql security definer set search_path = pg_catalog, public;
 
+-- Helper: Prevent client-side updates to read-only session columns (tampering checks)
+create or replace function public.prevent_session_tampering()
+returns trigger as $$
+begin
+    if nullif(current_setting('request.jwt.claim.role', true), '') in ('authenticated', 'anon') then
+        if new.token_budget is distinct from old.token_budget or
+           new.status is distinct from old.status then
+            raise exception 'Cannot modify read-only session columns directly';
+        end if;
+    end if;
+    return new;
+end;
+$$ language plpgsql security definer set search_path = pg_catalog, public;
+
 -- Attach updated_at triggers
 create trigger set_profiles_updated_at
     before update on public.profiles
@@ -254,24 +268,48 @@ create trigger set_game_sessions_updated_at
     before update on public.game_sessions
     for each row execute procedure public.set_updated_at();
 
+create trigger check_session_tampering
+    before update on public.game_sessions
+    for each row execute procedure public.prevent_session_tampering();
+
 -- Stored Function: Atomic token deduction from session budget
 create or replace function public.deduct_session_budget(session_id uuid, tokens_to_deduct int)
 returns int as $$
 declare
     new_budget int;
 begin
+    if tokens_to_deduct < 0 then
+        raise exception 'Tokens to deduct must be non-negative';
+    end if;
+
     update public.game_sessions
-    set token_budget = token_budget - tokens_to_deduct
-    where id = session_id and token_budget >= tokens_to_deduct
+    set token_budget = greatest(0, token_budget - tokens_to_deduct)
+    where id = session_id
     returning token_budget into new_budget;
     
     if not found then
-        raise exception 'Insufficient token budget or session not found';
+        raise exception 'Session not found';
     end if;
     
     return new_budget;
 end;
 $$ language plpgsql security definer set search_path = public;
+
+-- Revoke execute privileges from public, anon, and authenticated roles
+do $$
+begin
+    if not exists (select from pg_catalog.pg_roles where rolname = 'anon') then
+        create role anon;
+    end if;
+    if not exists (select from pg_catalog.pg_roles where rolname = 'authenticated') then
+        create role authenticated;
+    end if;
+end
+$$;
+
+revoke execute on function public.deduct_session_budget(uuid, int) from public;
+revoke execute on function public.deduct_session_budget(uuid, int) from anon;
+revoke execute on function public.deduct_session_budget(uuid, int) from authenticated;
 
 -- Trigger: Automatically provision a profile when a new user signs up via Supabase Auth
 create or replace function public.handle_new_user()

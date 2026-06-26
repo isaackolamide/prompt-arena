@@ -144,17 +144,29 @@ def test_deduct_session_budget_success(db_client: Client) -> None:
 def test_deduct_session_budget_insufficient(db_client: Client) -> None:
     session_id = setup_game_session(db_client.conn_str, 50)
     
-    # 1. Verify that deducting more than available budget raises APIError
+    # 1. Verify that deducting more than available budget successfully caps the budget at 0
+    response = db_client.rpc(
+        "deduct_session_budget",
+        {"session_id": str(session_id), "tokens_to_deduct": 60}
+    ).execute()
+    
+    assert response.data == 0
+    
+    # 2. Verify budget is updated to 0 in database
+    assert get_session_budget(db_client.conn_str, session_id) == 0
+
+
+def test_deduct_session_budget_negative(db_client: Client) -> None:
+    session_id = setup_game_session(db_client.conn_str, 50)
+    
+    # Verify that calling RPC with negative tokens raises a database exception (APIError)
     with pytest.raises(APIError) as exc_info:
         db_client.rpc(
             "deduct_session_budget",
-            {"session_id": str(session_id), "tokens_to_deduct": 60}
+            {"session_id": str(session_id), "tokens_to_deduct": -10}
         ).execute()
         
-    assert "Insufficient token budget or session not found" in exc_info.value.message
-    
-    # 2. Verify budget remains unmodified in database
-    assert get_session_budget(db_client.conn_str, session_id) == 50
+    assert "Tokens to deduct must be non-negative" in exc_info.value.message
 
 
 def test_deduct_session_budget_missing(db_client: Client) -> None:
@@ -167,5 +179,4 @@ def test_deduct_session_budget_missing(db_client: Client) -> None:
             {"session_id": str(non_existent_id), "tokens_to_deduct": 10}
         ).execute()
         
-    assert "Insufficient token budget or session not found" in exc_info.value.message
-
+    assert "Session not found" in exc_info.value.message

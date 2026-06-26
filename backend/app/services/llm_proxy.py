@@ -10,7 +10,7 @@ from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
 from postgrest.exceptions import APIError
 
 from app.core.config import settings
-from app.db.supabase import get_supabase_client
+from app.db.supabase import get_supabase_admin_client, get_supabase_client
 
 logger = logging.getLogger("app")
 
@@ -33,6 +33,11 @@ async def execute_prompt(
 
     try:
         # 2. Prompt Validation
+        if not prompt or not prompt.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt cannot be empty or whitespace-only",
+            )
         if len(prompt) > 10000:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,9 +116,11 @@ async def execute_prompt(
             mock_text = f"Mock LLM Response: {prompt_prefix}"
             tokens_used = 100
 
-            # Deduct tokens using Supabase RPC
+            # Deduct tokens using Supabase RPC with admin client
+            supabase_admin = get_supabase_admin_client()
+
             def deduct_budget() -> Any:
-                return supabase.rpc(
+                return supabase_admin.rpc(
                     "deduct_session_budget",
                     {"session_id": session_id_str, "tokens_to_deduct": tokens_used},
                 ).execute()
@@ -122,10 +129,14 @@ async def execute_prompt(
                 rpc_response = await asyncio.to_thread(deduct_budget)
                 remaining_budget = rpc_response.data
             except APIError as e:
-                # Map insufficient budget RPC error
+                if "Session not found" in e.message or "Insufficient token budget" in e.message:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Token budget exhausted or session not found: {e.message}",
+                    )
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Token budget exhausted: {e.message}",
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Database error during token deduction: {e.message}",
                 )
             except Exception as e:
                 raise HTTPException(
@@ -205,8 +216,10 @@ async def execute_prompt(
             tokens_used = getattr(response.usage_metadata, "total_token_count", 100)
 
         # 5. Token Deduction
+        supabase_admin = get_supabase_admin_client()
+
         def deduct_budget_gemini() -> Any:
-            return supabase.rpc(
+            return supabase_admin.rpc(
                 "deduct_session_budget",
                 {"session_id": session_id_str, "tokens_to_deduct": tokens_used},
             ).execute()
@@ -215,9 +228,14 @@ async def execute_prompt(
             rpc_response = await asyncio.to_thread(deduct_budget_gemini)
             remaining_budget = rpc_response.data
         except APIError as e:
+            if "Session not found" in e.message or "Insufficient token budget" in e.message:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Token budget exhausted or session not found: {e.message}",
+                )
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Token budget exhausted: {e.message}",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Database error during token deduction: {e.message}",
             )
         except Exception as e:
             raise HTTPException(

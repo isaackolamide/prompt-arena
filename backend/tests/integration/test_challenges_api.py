@@ -23,11 +23,13 @@ def client() -> TestClient:
 @pytest.fixture
 def mock_supabase():
     with patch("app.api.dependencies.get_supabase_client") as mock_dep_client, \
-         patch("app.services.llm_proxy.get_supabase_client") as mock_service_client:
+         patch("app.services.llm_proxy.get_supabase_client") as mock_service_client, \
+         patch("app.services.llm_proxy.get_supabase_admin_client") as mock_admin_client:
         dep_client = MagicMock()
         service_client = MagicMock()
         mock_dep_client.return_value = dep_client
         mock_service_client.return_value = service_client
+        mock_admin_client.return_value = service_client
         yield dep_client, service_client
 
 
@@ -203,6 +205,23 @@ def test_prompt_too_long_bad_request(client: TestClient, mock_supabase):
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "exceeds maximum length" in response.json()["detail"]
+
+
+def test_prompt_empty_bad_request(client: TestClient, mock_supabase):
+    dep_client, service_client = mock_supabase
+    setup_mock_auth(dep_client, user_id="user-uuid")
+
+    session_id = uuid.uuid4()
+    setup_mock_session(service_client, str(session_id))
+
+    for empty_prompt in ["", "   ", "\n  \t "]:
+        response = client.post(
+            f"/challenges/session/{session_id}/prompt",
+            json={"prompt": empty_prompt},
+            headers={"Authorization": "Bearer valid-token"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "cannot be empty or whitespace-only" in response.json()["detail"]
 
 
 def test_successful_prompt_execution(

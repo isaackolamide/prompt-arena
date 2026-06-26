@@ -23,7 +23,7 @@
 - Dependencies: None
 
 ### Task 1.2: Database Integration Tests
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: M
 - Files:
   - `backend/tests/integration/test_database_budget.py` (create)
@@ -37,7 +37,7 @@
 - Dependencies: Task 1.1
 
 ### Checkpoint — Phase 1
-- [ ] Supabase database schema migrations apply cleanly, and all budget-related integration tests pass successfully.
+- [x] Supabase database schema migrations apply cleanly, and all budget-related integration tests pass successfully.
 - Verification: `pytest backend/tests/integration/test_database_budget.py`
 
 ---

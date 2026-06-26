@@ -3,14 +3,22 @@
 ## Project Structure
 
 ```
-backend/                → FastAPI application source code (Python)
-backend/app/            → API routes, Supabase client, LLM proxy, and sandbox trigger
-backend/tests/          → pytest suite for backend endpoints and mocks
-frontend/               → Vite + React/TS application source code
-frontend/src/           → UI views, Monaco editor components, and terminal simulation
-frontend/src/tests/     → Vitest suite for React component testing
-sandbox-lambda/         → AWS Lambda runner code (Firecracker microVM executions)
-sdd-specs/              → Specification documents (mission, tech-stack, roadmap)
+backend/                                  → FastAPI application source code (Python)
+backend/app/                              → Application entry point (main.py)
+backend/app/api/                          → API endpoints/routes and controller logic
+backend/app/api/dependencies.py           → Common FastAPI dependencies (auth guards, DB handlers)
+backend/app/core/                         → Application configurations, security settings, constants
+backend/app/db/                           → Database clients and schema configurations (Supabase connection)
+backend/app/schemas/                      → Pydantic request/response validation models (DTOs)
+backend/app/services/                     → Core business logic (code executor, Gemini LLM proxy)
+backend/tests/                            → pytest suite & integration tests for backend endpoints and mocks
+frontend/                                 → Vite + React/TS application source code
+frontend/src/                             → UI views, Monaco editor components, and terminal simulation
+frontend/src/tests/                       → Vitest suite for React component testing
+sandbox-lambda/                           → AWS Lambda runner code (Firecracker microVM executions)
+infra/                                    → Infrastructure as Code (CDK or Terraform)
+telemetry/                                → Telemetry and monitoring (Grafana)
+sdd-specs/                                → Specification documents (mission, tech-stack, roadmap)
 ```
 
 ## Code Style
@@ -62,7 +70,7 @@ def calculate_score(correctness: float, efficiency: float, speed: float) -> floa
 
 ## Testing Strategy
 
-For detailed implementation guidelines (AAA structure, mocks, and builders), refer to the shared `harnesspowers:references/testing-patterns.md` reference.
+For detailed implementation guidelines (AAA structure, mocks, and builders), refer to the shared `sdd-harness:references/testing-patterns.md` reference.
 
 ### Framework & Tools
 
@@ -84,6 +92,12 @@ For detailed implementation guidelines (AAA structure, mocks, and builders), ref
 - **TDD Cycle**: Follow Red-Green-Refactor. Always write a failing test before introducing logic.
 - **Mock Boundaries**: Mock database (Supabase) calls, external LLM API calls, and AWS Lambda executor HTTP invocations. Never mock pure scoring functions, budget validators, or core domain logic.
 - **Builder Pattern**: Use builder classes (e.g. `GameSessionBuilder`) to construct complex objects and mock values in test setups to protect tests against schema changes.
+
+### Coding Principles
+- **SOLID Principles**: Adhere to SOLID principles in class and module design, with strong emphasis on Single Responsibility Principle (SRP).
+- **KISS Principle**: Keep It Simple, Stupid. Avoid over-engineering and unnecessary abstractions.
+- **YAGNI Principle**: You Ain't Gonna Need This. Don't implement features that are not required.
+- **Clean Code Principles**: Adhere to clean code principles in code design, especially with regards to naming conventions and function design.
 
 ### Test Organization
 

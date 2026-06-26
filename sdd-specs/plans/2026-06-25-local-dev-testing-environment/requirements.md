@@ -52,4 +52,4 @@ Why this feature is being built:
 - sdd-specs/roadmap.md — Phase this feature belongs to
 - sdd-specs/features/2026-06-25-local-dev-testing-environment-spec.md — Local Containerized Dev & Testing Environment
 - sdd-docs/decisions/ADR-001-local-supabase-simulation-strategy.md — Local Supabase Simulation Strategy
-- harnesspowers:references/testing-patterns.md — Testing patterns reference for TDD, assertions, and mocking boundaries
+- sdd-harness:references/testing-patterns.md — Testing patterns reference for TDD, assertions, and mocking boundaries

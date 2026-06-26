@@ -47,5 +47,5 @@ Why this feature is being built:
 - sdd-specs/mission.md — Project objective and boundaries
 - sdd-specs/tech-stack.md — Technical constraints and code style
 - sdd-specs/roadmap.md — Phase this feature belongs to
-- harnesspowers:references/testing-patterns.md — Testing patterns reference for TDD, assertions, and mocking boundaries
-- harnesspowers:references/clean-architecture-ddd-reference.md — Clean Architecture and DDD structural/layer rules (mapped conceptually to Python and TypeScript)
+- sdd-harness:clean-architecture-ddd-reference.md — Clean Architecture and DDD structural/layer rules (mapped conceptually to Python and TypeScript)
+- sdd-harness:testing-patterns.md — Testing patterns reference for TDD, assertions, and mocking boundaries

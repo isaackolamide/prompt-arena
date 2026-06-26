@@ -59,7 +59,7 @@
 - Dependencies: None
 
 ### Task 2.2: Auth Guard Dependency
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: M
 - Files:
   - `backend/app/api/dependencies.py` (create)
@@ -72,7 +72,7 @@
 - Dependencies: Task 2.1
 
 ### Checkpoint — Phase 2
-- [ ] Auth guard dependency is fully covered by tests, and libraries are installed cleanly.
+- [x] Auth guard dependency is fully covered by tests, and libraries are installed cleanly.
 - Verification: `pytest backend/tests/unit/test_auth_guard.py`
 
 ---

@@ -149,10 +149,19 @@ class LambdaClient:
 
             # Count passed/failed tests
             test_results = result["test_results"]
+            sanitized_results = []
+            for res in test_results:
+                if isinstance(res, dict):
+                    sanitized_results.append({
+                        "name": str(res.get("name", "")),
+                        "passed": bool(res.get("passed", False)),
+                        "message": str(res.get("message", ""))
+                    })
+
             passed_count = 0
             failed_count = 0
-            for t in test_results:
-                if isinstance(t, dict) and t.get("passed") is True:
+            for t in sanitized_results:
+                if t.get("passed") is True:
                     passed_count += 1
                 else:
                     failed_count += 1
@@ -172,7 +181,7 @@ class LambdaClient:
                 "stdout": result["stdout"],
                 "stderr": result["stderr"],
                 "passed": result["passed"],
-                "test_results": result["test_results"],
+                "test_results": sanitized_results,
             }
 
         except (ReadTimeoutError, SandboxTimeoutError) as e:

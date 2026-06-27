@@ -9,7 +9,6 @@ from typing import Dict, List, Any, Tuple, Optional
 
 # Constants
 SANDBOX_DIR = "/tmp/sandbox"
-TIMEOUT_LIMIT = int(os.environ.get("TIMEOUT_LIMIT", "5"))  # seconds
 
 # No global state to prevent test pollution
 

@@ -42,6 +42,7 @@ export class SandboxStack extends cdk.Stack {
     this.sandboxFunction = new lambda.DockerImageFunction(this, 'SandboxLambdaFunction', {
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../../sandbox-lambda')),
       timeout: cdk.Duration.seconds(5),
+      memorySize: 512,
       vpc: this.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,

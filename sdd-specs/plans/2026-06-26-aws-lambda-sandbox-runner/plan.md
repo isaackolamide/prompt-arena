@@ -57,7 +57,7 @@
 ## Phase 2: FastAPI Backend Integration
 
 ### Task 2.1: Settings and Configuration Update
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: XS
 - Files:
   * `backend/app/core/config.py` (modify)

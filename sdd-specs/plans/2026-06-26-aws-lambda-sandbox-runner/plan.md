@@ -74,7 +74,7 @@
 - Dependencies: None
 
 ### Task 2.2: Implement LambdaClient Service Class
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   * `backend/app/services/lambda_client.py` (create)
@@ -92,7 +92,7 @@
 - Dependencies: Task 2.1
 
 ### Task 2.3: LambdaClient Unit & Integration Tests
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: M
 - Files:
   * `backend/tests/unit/test_lambda_client.py` (create)

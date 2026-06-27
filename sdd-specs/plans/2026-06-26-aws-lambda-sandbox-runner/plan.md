@@ -49,7 +49,7 @@
 - Dependencies: Task 1.1
 
 ### Checkpoint — Phase 1
-- [ ] Sandbox Lambda container builds cleanly and all local unit tests for the Lambda handler run pass.
+- [x] Sandbox Lambda container builds cleanly and all local unit tests for the Lambda handler run pass.
 - Verification: Run `docker build -t sandbox-lambda sandbox-lambda/` and `pytest sandbox-lambda/test_runner.py`
 
 ---

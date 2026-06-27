@@ -2,7 +2,7 @@
   "name": "prompt-arena-infra",
   "version": "0.1.0",
   "bin": {
-    "infra": "bin/infra.js"
+    "infra": "dist/bin/infra.js"
   },
   "scripts": {
     "build": "tsc",
@@ -11,13 +11,13 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.128.0",
+    "aws-cdk-lib": "2.128.0",
     "constructs": "^10.3.0",
     "source-map-support": "^0.5.21"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
-    "aws-cdk": "^2.128.0",
+    "aws-cdk": "2.128.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   }

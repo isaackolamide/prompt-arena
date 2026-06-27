@@ -156,7 +156,7 @@
 - Dependencies: Task 3.2
 
 ### Checkpoint — Phase 3
-- [ ] AWS CDK stack compiles and synthesizes CloudFormation templates successfully.
+- [x] AWS CDK stack compiles and synthesizes CloudFormation templates successfully.
 - Verification: Run `cd infra && npx cdk synth`
 
 ---

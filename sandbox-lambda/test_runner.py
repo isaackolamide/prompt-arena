@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+import pytest
 
 # Add the sandbox-lambda directory to sys.path to allow importing runner
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -338,5 +339,218 @@ def test_execute_sandbox_stale_report_cleanup():
         runner.execute_sandbox("python", "print('hello')", "")
         
         assert not os.path.exists(report_file)
+
+
+def test_execute_sandbox_python_success():
+    from unittest.mock import patch
+    
+    # 1. Success case with pytest
+    pytest_report = {
+        "exitcode": 0,
+        "tests": [
+            {"nodeid": "test_suite.py::test_one", "outcome": "passed"}
+        ]
+    }
+    
+    def mock_run_command(cmd, cwd, timeout):
+        # write the pytest json report
+        report_file = os.path.join(runner.SANDBOX_DIR, "report.json")
+        with open(report_file, "w") as f:
+            json.dump(pytest_report, f)
+        return 0, "pytest output", ""
+        
+    with patch("runner.run_command", side_effect=mock_run_command):
+        res = runner.execute_sandbox("python", "def solution(): pass", "def test_one(): pass")
+        assert res["passed"] is True
+        assert res["stdout"] == "pytest output"
+        assert len(res["test_results"]) == 1
+        assert res["test_results"][0]["name"] == "test_suite.py::test_one"
+        assert res["test_results"][0]["passed"] is True
+
+
+def test_execute_sandbox_python_no_tests_collected():
+    from unittest.mock import patch
+    
+    # Pytest returns exit code 5 (no tests collected).
+    # Then it falls back to direct python run.
+    call_count = 0
+    def mock_run_command(cmd, cwd, timeout):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return 5, "no tests collected", ""
+        else:
+            return 0, "direct script output", ""
+            
+    with patch("runner.run_command", side_effect=mock_run_command):
+        res = runner.execute_sandbox("python", "print(123)", "print(456)")
+        assert res["passed"] is True
+        assert res["stdout"] == "direct script output"
+        assert len(res["test_results"]) == 1
+        assert res["test_results"][0]["name"] == "test_suite.py"
+        assert res["test_results"][0]["passed"] is True
+
+
+def test_execute_sandbox_python_timeout():
+    from unittest.mock import patch
+    
+    # run_command returns exit code -1 (timeout)
+    with patch("runner.run_command", return_value=(-1, "", "Execution timed out")):
+        res = runner.execute_sandbox("python", "while True: pass", "def test_loop(): pass")
+        assert res["passed"] is False
+        assert len(res["test_results"]) == 1
+        assert "timeout" in res["test_results"][0]["name"]
+        assert "timed out" in res["test_results"][0]["message"]
+
+
+def test_execute_sandbox_python_execution_error():
+    from unittest.mock import patch
+    
+    # run_command returns general error code (e.g., 3) and no report file is created
+    with patch("runner.run_command", return_value=(3, "", "SyntaxError: invalid syntax")):
+        res = runner.execute_sandbox("python", "invalid python", "def test_invalid(): pass")
+        assert res["passed"] is False
+        assert len(res["test_results"]) == 1
+        assert "execution error" in res["test_results"][0]["name"]
+        assert "SyntaxError" in res["test_results"][0]["message"]
+
+
+def test_execute_sandbox_node_success():
+    from unittest.mock import patch
+    
+    # Success case with node test runner
+    node_report_lines = [
+        json.dumps({"type": "test:pass", "data": {"name": "node test"}})
+    ]
+    
+    def mock_run_command(cmd, cwd, timeout):
+        report_file = os.path.join(runner.SANDBOX_DIR, "report.json")
+        with open(report_file, "w") as f:
+            f.write("\n".join(node_report_lines))
+        return 0, "node output", ""
+        
+    with patch("runner.run_command", side_effect=mock_run_command):
+        res = runner.execute_sandbox("node", "const x = 1;", "test('node test', () => {})")
+        assert res["passed"] is True
+        assert res["stdout"] == "node output"
+        assert len(res["test_results"]) == 1
+        assert res["test_results"][0]["name"] == "node test"
+        assert res["test_results"][0]["passed"] is True
+
+
+def test_execute_sandbox_node_no_tests_collected():
+    from unittest.mock import patch
+    
+    # Node returns exit code 0 but no tests were run
+    with patch("runner.run_command", return_value=(0, "node output", "")) as mock_run:
+        res = runner.execute_sandbox("node", "const x = 1;", "")
+        assert res["passed"] is True
+        assert len(res["test_results"]) == 1
+        assert "solution.js" in res["test_results"][0]["name"]
+
+
+def test_execute_sandbox_node_timeout_with_results():
+    from unittest.mock import patch
+    
+    # Node execution times out (-1) but has generated some test reports
+    node_report_lines = [
+        json.dumps({"type": "test:pass", "data": {"name": "first test"}})
+    ]
+    def mock_run_command(cmd, cwd, timeout):
+        report_file = os.path.join(runner.SANDBOX_DIR, "report.json")
+        with open(report_file, "w") as f:
+            f.write("\n".join(node_report_lines))
+        return -1, "partial output", "timeout error"
+        
+    with patch("runner.run_command", side_effect=mock_run_command):
+        res = runner.execute_sandbox("javascript", "const x = 1;", "test('first test')")
+        assert res["passed"] is False
+        assert len(res["test_results"]) == 2
+        assert res["test_results"][0]["name"] == "first test"
+        assert res["test_results"][0]["passed"] is True
+        assert res["test_results"][1]["name"] == "timeout"
+        assert res["test_results"][1]["passed"] is False
+
+
+def test_execute_sandbox_empty_language():
+    res = runner.execute_sandbox("", "print(1)", "")
+    assert res["passed"] is False
+    assert "LANGUAGE environment variable is required" in res["stderr"]
+
+
+def test_lambda_handler_exception():
+    from unittest.mock import patch
+    # Cause execute_sandbox to raise an exception
+    with patch("runner.execute_sandbox", side_effect=RuntimeError("Unexpected error")):
+        res = runner.lambda_handler({"language": "python", "code": "print(1)"}, None)
+        assert res["passed"] is False
+        assert len(res["test_results"]) == 1
+        assert res["test_results"][0]["name"] == "sandbox-lambda handler error"
+        assert "Unexpected error" in res["test_results"][0]["message"]
+
+
+def test_main_success():
+    from unittest.mock import patch
+    import io
+    
+    mock_result = {"stdout": "out", "stderr": "err", "passed": True, "test_results": []}
+    
+    env_mock = {
+        "LANGUAGE": "python",
+        "CODE": "print(1)",
+        "TEST_SUITE": "assert True"
+    }
+    
+    # Redirect stdout to capture print
+    captured_stdout = io.StringIO()
+    with patch.dict(os.environ, env_mock), \
+         patch("runner.execute_sandbox", return_value=mock_result), \
+         patch("sys.stdout", new=captured_stdout):
+         
+        runner.main()
+        
+    output = json.loads(captured_stdout.getvalue().strip())
+    assert output == mock_result
+
+
+def test_main_empty_language():
+    from unittest.mock import patch
+    import io
+    
+    # Redirect stdout to capture print
+    captured_stdout = io.StringIO()
+    with patch.dict(os.environ, {}, clear=True), \
+         patch("sys.stdout", new=captured_stdout):
+         
+        with pytest.raises(SystemExit):
+            runner.main()
+        
+    output = json.loads(captured_stdout.getvalue().strip())
+    assert output["passed"] is False
+    assert "LANGUAGE environment variable is required" in output["stderr"]
+
+
+def test_main_exception():
+    from unittest.mock import patch
+    import io
+    
+    env_mock = {
+        "LANGUAGE": "python",
+        "CODE": "print(1)",
+        "TEST_SUITE": "assert True"
+    }
+    
+    # Redirect stdout to capture print
+    captured_stdout = io.StringIO()
+    with patch.dict(os.environ, env_mock), \
+         patch("runner._main_impl", side_effect=RuntimeError("main crash")), \
+         patch("sys.stdout", new=captured_stdout):
+         
+        runner.main()
+        
+    output = json.loads(captured_stdout.getvalue().strip())
+    assert output["passed"] is False
+    assert "main crash" in output["test_results"][0]["message"]
+
 
 

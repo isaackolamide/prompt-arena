@@ -25,8 +25,8 @@
 ### Milestones
 - [x] Gemini LLM Proxy [sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md](sdd-specs/features/2026-06-26-gemini-llm-proxy-spec.md)
   - [x] Create the Python Gemini LLM proxy measuring and enforcing token budgets
-- [ ] AWS Lambda Sandbox Runner [sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md](sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md)
-  - [ ] Deploy the AWS Lambda Firecracker sandbox runner packaging Python/Node environments
+- [x] AWS Lambda Sandbox Runner [sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md](sdd-specs/features/2026-06-26-aws-lambda-sandbox-runner-spec.md)
+  - [x] Deploy the AWS Lambda Firecracker sandbox runner packaging Python/Node environments
 
 **Dependencies**: AWS account setup (App Runner, Lambda), Google Gemini API credentials
 

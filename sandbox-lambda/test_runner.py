@@ -207,3 +207,84 @@ def test_run_command_timeout():
     )
     assert exit_code == -1
     assert "timed out" in stderr
+
+
+def test_lambda_handler_python_success():
+    from unittest.mock import patch
+    event = {
+        "language": "python",
+        "code": "def add(a, b): return a + b",
+        "test_suite": "def test_add(): assert add(1, 2) == 3"
+    }
+    
+    mock_response = {
+        "stdout": "pytest stdout",
+        "stderr": "",
+        "passed": True,
+        "test_results": [{"name": "test_add", "passed": True, "message": ""}]
+    }
+    
+    with patch("runner.execute_sandbox", return_value=mock_response) as mock_exec:
+        # Clear environment variables to ensure they get set
+        for k in ["LANGUAGE", "CODE", "TEST_SUITE", "TIMEOUT_LIMIT"]:
+            if k in os.environ:
+                del os.environ[k]
+                
+        res = runner.lambda_handler(event, None)
+        
+        # Verify execute_sandbox was called with the correct arguments
+        mock_exec.assert_called_once_with("python", event["code"], event["test_suite"])
+        
+        # Verify environmental configurations were set
+        assert os.environ.get("LANGUAGE") == "python"
+        assert os.environ.get("CODE") == event["code"]
+        assert os.environ.get("TEST_SUITE") == event["test_suite"]
+        
+        # Verify the returned dict matches mock response
+        assert res == mock_response
+
+
+def test_lambda_handler_node_success():
+    from unittest.mock import patch
+    event = {
+        "language": "javascript",
+        "code": "function add(a, b) { return a + b; }",
+        "test_suite": "test('add', () => { assert.equal(add(1, 2), 3); });",
+        "timeout": 10
+    }
+    
+    mock_response = {
+        "stdout": "node stdout",
+        "stderr": "",
+        "passed": True,
+        "test_results": [{"name": "add", "passed": True, "message": ""}]
+    }
+    
+    with patch("runner.execute_sandbox", return_value=mock_response) as mock_exec:
+        for k in ["LANGUAGE", "CODE", "TEST_SUITE", "TIMEOUT_LIMIT"]:
+            if k in os.environ:
+                del os.environ[k]
+                
+        res = runner.lambda_handler(event, None)
+        
+        mock_exec.assert_called_once_with("javascript", event["code"], event["test_suite"])
+        assert os.environ.get("LANGUAGE") == "javascript"
+        assert os.environ.get("CODE") == event["code"]
+        assert os.environ.get("TEST_SUITE") == event["test_suite"]
+        assert os.environ.get("TIMEOUT_LIMIT") == "10"
+        assert res == mock_response
+
+
+def test_lambda_handler_unsupported_language():
+    event = {
+        "language": "rust",
+        "code": "fn main() {}",
+        "test_suite": ""
+    }
+    
+    res = runner.lambda_handler(event, None)
+    assert res["passed"] is False
+    assert len(res["test_results"]) == 1
+    assert res["test_results"][0]["name"] == "initialization"
+    assert "Unsupported language: rust" in res["test_results"][0]["message"]
+

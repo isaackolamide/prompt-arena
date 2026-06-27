@@ -19,8 +19,9 @@ def run_command(cmd: List[str], cwd: str, timeout: float) -> Tuple[int, str, str
     Returns:
         A tuple of (exit_code, stdout, stderr).
     """
+    timeout_limit = int(os.environ.get("TIMEOUT_LIMIT", "5"))
     if timeout <= 0:
-        return -1, "", f"Execution timed out after {TIMEOUT_LIMIT} seconds."
+        return -1, "", f"Execution timed out after {timeout_limit} seconds."
         
     try:
         res = subprocess.run(
@@ -37,7 +38,7 @@ def run_command(cmd: List[str], cwd: str, timeout: float) -> Tuple[int, str, str
         stdout = e.stdout if e.stdout else ""
         stderr = e.stderr if e.stderr else ""
         if not stderr:
-            stderr = f"Execution timed out after {TIMEOUT_LIMIT} seconds."
+            stderr = f"Execution timed out after {timeout_limit} seconds."
         return -1, stdout, stderr
     except Exception as e:
         return -2, "", str(e)
@@ -241,8 +242,12 @@ def parse_node_json_report(report_path: str) -> Tuple[bool, List[Dict[str, Any]]
         
     return overall_passed, test_results
 
-def _main_impl() -> None:
+def execute_sandbox(
+    language: str, code: str, test_suite: str
+) -> Dict[str, Any]:
+    """Executes code and test suite in the sandbox, returning the result dict."""
     start_time = time.time()
+    timeout_limit = int(os.environ.get("TIMEOUT_LIMIT", "5"))
 
     # Set default values
     stdout = ""
@@ -252,23 +257,22 @@ def _main_impl() -> None:
     
     # Clean and recreate sandbox directory
     if os.path.exists(SANDBOX_DIR):
-        shutil.rmtree(SANDBOX_DIR)
+        try:
+            shutil.rmtree(SANDBOX_DIR)
+        except Exception:
+            pass
     os.makedirs(SANDBOX_DIR, exist_ok=True)
     
-    # Read environment variables
-    language = os.environ.get("LANGUAGE", "").lower().strip()
-    code = os.environ.get("CODE", "")
-    test_suite = os.environ.get("TEST_SUITE", "")
+    language = language.lower().strip()
     
     if not language:
         stderr = "Error: LANGUAGE environment variable is required."
-        print(json.dumps({
+        return {
             "stdout": stdout,
             "stderr": stderr,
             "passed": passed,
             "test_results": test_results
-        }))
-        sys.exit(0)
+        }
         
     if language in ["python", "py"]:
         solution_file = os.path.join(SANDBOX_DIR, "solution.py")
@@ -291,7 +295,7 @@ def _main_impl() -> None:
                 test_file
             ]
             elapsed = time.time() - start_time
-            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            remaining = max(0.1, timeout_limit - elapsed)
             exit_code, stdout, stderr = run_command(
                 cmd, SANDBOX_DIR, remaining
             )
@@ -301,7 +305,7 @@ def _main_impl() -> None:
             if exit_code == 5:
                 # Fallback to direct python run
                 elapsed = time.time() - start_time
-                remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+                remaining = max(0.1, timeout_limit - elapsed)
                 exit_code, stdout, stderr = run_command(
                     ["python3", test_file], SANDBOX_DIR, remaining
                 )
@@ -320,7 +324,7 @@ def _main_impl() -> None:
                 test_results = [{
                     "name": "timeout",
                     "passed": False,
-                    "message": f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
+                    "message": f"Execution timed out (limit: {timeout_limit}s)"
                 }]
             else:
                 # Other execution error (syntax errors, import errors, etc.)
@@ -337,7 +341,7 @@ def _main_impl() -> None:
         else:
             # No test suite, run solution.py directly
             elapsed = time.time() - start_time
-            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            remaining = max(0.1, timeout_limit - elapsed)
             exit_code, stdout, stderr = run_command(
                 ["python3", solution_file], SANDBOX_DIR, remaining
             )
@@ -377,7 +381,7 @@ def _main_impl() -> None:
                 test_file
             ]
             elapsed = time.time() - start_time
-            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            remaining = max(0.1, timeout_limit - elapsed)
             exit_code, stdout, stderr = run_command(
                 cmd, SANDBOX_DIR, remaining
             )
@@ -392,7 +396,7 @@ def _main_impl() -> None:
                 passed = (exit_code == 0)
                 msg = stderr if stderr else stdout
                 if exit_code == -1:
-                    msg = f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
+                    msg = f"Execution timed out (limit: {timeout_limit}s)"
                 
                 name = (
                     "test_suite.js (no tests collected)"
@@ -410,12 +414,12 @@ def _main_impl() -> None:
                 test_results.append({
                     "name": "timeout",
                     "passed": False,
-                    "message": f"Execution timed out (limit: {TIMEOUT_LIMIT}s)"
+                    "message": f"Execution timed out (limit: {timeout_limit}s)"
                 })
         else:
             # No test suite, run solution.js directly
             elapsed = time.time() - start_time
-            remaining = max(0.1, TIMEOUT_LIMIT - elapsed)
+            remaining = max(0.1, timeout_limit - elapsed)
             exit_code, stdout, stderr = run_command(
                 ["node", solution_file], SANDBOX_DIR, remaining
             )
@@ -434,13 +438,69 @@ def _main_impl() -> None:
             "message": stderr
         }]
         
-    # Print exactly the final JSON output to stdout
-    print(json.dumps({
+    return {
         "stdout": stdout,
         "stderr": stderr,
         "passed": passed,
         "test_results": test_results
-    }))
+    }
+
+
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """AWS Lambda handler wrapper for execution."""
+    try:
+        language = event.get("language")
+        code = event.get("code")
+        test_suite = event.get("test_suite")
+        
+        # Set environmental configurations as required by the task brief
+        if language is not None:
+            os.environ["LANGUAGE"] = str(language)
+        if code is not None:
+            os.environ["CODE"] = str(code)
+        if test_suite is not None:
+            os.environ["TEST_SUITE"] = str(test_suite)
+        if "timeout" in event and event["timeout"] is not None:
+            os.environ["TIMEOUT_LIMIT"] = str(event["timeout"])
+            
+        lang_str = os.environ.get("LANGUAGE", "")
+        code_str = os.environ.get("CODE", "")
+        suite_str = os.environ.get("TEST_SUITE", "")
+        
+        return execute_sandbox(lang_str, code_str, suite_str)
+    except Exception as e:
+        import traceback
+        return {
+            "stdout": "",
+            "stderr": traceback.format_exc(),
+            "passed": False,
+            "test_results": [{
+                "name": "sandbox-lambda handler error",
+                "passed": False,
+                "message": str(e)
+            }]
+        }
+
+
+def _main_impl() -> None:
+    # Read environment variables
+    language = os.environ.get("LANGUAGE", "").lower().strip()
+    code = os.environ.get("CODE", "")
+    test_suite = os.environ.get("TEST_SUITE", "")
+    
+    if not language:
+        stderr = "Error: LANGUAGE environment variable is required."
+        print(json.dumps({
+            "stdout": "",
+            "stderr": stderr,
+            "passed": False,
+            "test_results": []
+        }))
+        sys.exit(0)
+        
+    result = execute_sandbox(language, code, test_suite)
+    print(json.dumps(result))
+
 
 def main() -> None:
     try:
@@ -457,6 +517,7 @@ def main() -> None:
                 "message": str(e)
             }]
         }))
+
 
 if __name__ == "__main__":
     main()

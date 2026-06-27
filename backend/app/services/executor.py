@@ -76,6 +76,7 @@ def execute_code_locally(
             start_time = time.monotonic()
             container = client.containers.run(
                 image="sandbox-lambda",
+                entrypoint=["python", "/app/runner.py"],
                 environment={
                     "LANGUAGE": language,
                     "CODE": code,

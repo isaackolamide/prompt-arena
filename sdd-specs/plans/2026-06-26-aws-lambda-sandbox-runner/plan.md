@@ -9,7 +9,7 @@
 ## Phase 1: Lambda Handler & Container Image Setup
 
 ### Task 1.1: AWS Lambda Handler in runner.py
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: XS
 - Files:
   * `sandbox-lambda/runner.py` (modify)
@@ -22,7 +22,7 @@
 - Dependencies: None
 
 ### Task 1.2: Lambda Handler Unit Tests
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   * `sandbox-lambda/test_runner.py` (modify)

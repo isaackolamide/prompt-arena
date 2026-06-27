@@ -1,0 +1,32 @@
+{
+  "app": "npx ts-node --prefer-ts-node bin/infra.ts",
+  "context": {
+    "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
+    "@aws-cdk/core:stackRelativeExports": true,
+    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+    "@aws-cdk/aws-codepipeline:useV2Templates": true,
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSSLOps": true,
+    "@aws-cdk/aws-s3:transferAccelerationPreferred": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:validateOnlyOneStackDependency": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "@aws-cdk/aws-iam:standardizeQueuePermissions": true,
+    "@aws-cdk/aws-appsync:useEnvVariables": true,
+    "@aws-cdk/aws-kms:aliasNameRef": true,
+    "@aws-cdk/aws-route53-patters:useCertificate": true,
+    "@aws-cdk/custom-resources:utcFargateDbBackup": true,
+    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableStatusFilterForECSTasks": true,
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/aws-cloudfront:keepHeadersInImportedBehavior": true,
+    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+    "@aws-cdk/aws-cognito:useSimplifiedUserPoolClientName": true,
+    "@aws-cdk/aws-accessanalyzer:compareUndefinedRouteRules": true,
+    "@aws-cdk/core:detectMissedDependOn": true,
+    "@aws-cdk/aws-emr:useServerSideEncryption": true,
+    "@aws-cdk/aws-lambda:recognizeVersionProps": true
+  }
+}

@@ -130,7 +130,7 @@
 - Dependencies: None
 
 ### Task 3.2: Create Isolated VPC and ECR Stack
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   * `infra/lib/sandbox-stack.ts` (create)

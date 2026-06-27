@@ -35,9 +35,7 @@ COPY runner.py /app/runner.py
 # Create a custom CommonJS test reporter for Node.js
 RUN printf 'async function* customReporter(source) { for await (const event of source) { yield JSON.stringify(event) + "\\n"; } }; module.exports = customReporter; module.exports.default = customReporter;\n' > /app/reporter.cjs
 
-RUN groupadd -g 1000 sandbox && useradd -r -u 1000 -g sandbox sandbox \
-    && mkdir -p /tmp/sandbox \
-    && chown -R sandbox:sandbox /tmp/sandbox
+RUN groupadd -g 1000 sandbox && useradd -r -u 1000 -g sandbox sandbox
 USER sandbox
 
 # Set entrypoint to run the Lambda Runtime Interface Client (RIC)

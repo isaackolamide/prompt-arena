@@ -35,7 +35,7 @@ def log_event(event_name: str, **kwargs: Any) -> None:
 class LambdaClient:
     """Client for invoking AWS Lambda sandbox service."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings) -> None:
         self.settings = settings
         # Configure Boto3 config with safety timeouts to avoid hanging indefinitely
         config = Config(
@@ -85,19 +85,22 @@ class LambdaClient:
                 "test_suite": test_suite,
             }
 
-            # Invoke lambda synchronously, offloaded to thread to avoid blocking loop
-            response = await asyncio.to_thread(
-                self.client.invoke,
-                FunctionName=self.settings.AWS_LAMBDA_FUNCTION_NAME,
-                InvocationType="RequestResponse",
-                Payload=json.dumps(payload).encode("utf-8"),
-            )
+            def _invoke_and_read() -> tuple[dict[str, Any], bytes]:
+                res = self.client.invoke(
+                    FunctionName=self.settings.AWS_LAMBDA_FUNCTION_NAME,
+                    InvocationType="RequestResponse",
+                    Payload=json.dumps(payload).encode("utf-8"),
+                )
+                res_bytes = res["Payload"].read()
+                return res, res_bytes
+
+            # Invoke lambda and read payload inside the worker thread to avoid blocking main thread
+            response, payload_bytes = await asyncio.to_thread(_invoke_and_read)
 
             duration = time.monotonic() - start_time
 
             # Handle execution-level error indicated by Lambda
             if "FunctionError" in response:
-                payload_bytes = response["Payload"].read()
                 payload_str = payload_bytes.decode("utf-8")
                 try:
                     error_data = json.loads(payload_str)
@@ -115,7 +118,6 @@ class LambdaClient:
                     )
 
             # Safely parse response payload
-            payload_bytes = response["Payload"].read()
             payload_str = payload_bytes.decode("utf-8")
             try:
                 result = json.loads(payload_str)

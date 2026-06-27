@@ -288,3 +288,55 @@ def test_lambda_handler_unsupported_language():
     assert res["test_results"][0]["name"] == "initialization"
     assert "Unsupported language: rust" in res["test_results"][0]["message"]
 
+
+def test_lambda_handler_environment_leak_prevention():
+    from unittest.mock import patch
+    
+    event1 = {
+        "language": "python",
+        "code": "def add(a, b): return a + b",
+        "test_suite": "def test_add(): assert add(1, 2) == 3",
+        "timeout": 10
+    }
+    
+    mock_response = {
+        "stdout": "pytest stdout",
+        "stderr": "",
+        "passed": True,
+        "test_results": []
+    }
+    
+    with patch("runner.execute_sandbox", return_value=mock_response):
+        runner.lambda_handler(event1, None)
+        assert os.environ.get("LANGUAGE") == "python"
+        assert os.environ.get("CODE") == event1["code"]
+        assert os.environ.get("TEST_SUITE") == event1["test_suite"]
+        assert os.environ.get("TIMEOUT_LIMIT") == "10"
+        
+        event2 = {}
+        runner.lambda_handler(event2, None)
+        assert os.environ.get("LANGUAGE") == ""
+        assert os.environ.get("CODE") == ""
+        assert os.environ.get("TEST_SUITE") == ""
+        assert "TIMEOUT_LIMIT" not in os.environ
+
+
+def test_execute_sandbox_stale_report_cleanup():
+    from unittest.mock import patch
+    
+    os.makedirs(runner.SANDBOX_DIR, exist_ok=True)
+    report_file = os.path.join(runner.SANDBOX_DIR, "report.json")
+    with open(report_file, "w") as f:
+        f.write('{"stale": true}')
+        
+    def mock_rmtree(path, *args, **kwargs):
+        raise OSError("Permission denied / directory busy")
+        
+    with patch("shutil.rmtree", side_effect=mock_rmtree), \
+         patch("runner.run_command", return_value=(0, "ok", "")) as mock_run:
+         
+        runner.execute_sandbox("python", "print('hello')", "")
+        
+        assert not os.path.exists(report_file)
+
+

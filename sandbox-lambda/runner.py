@@ -262,6 +262,15 @@ def execute_sandbox(
         except Exception:
             pass
     os.makedirs(SANDBOX_DIR, exist_ok=True)
+
+    # Explicitly check and remove the report.json file inside the sandbox directory
+    # before running tests to prevent parsing stale reports from previous runs if cleanup fails.
+    report_file = os.path.join(SANDBOX_DIR, "report.json")
+    if os.path.exists(report_file):
+        try:
+            os.remove(report_file)
+        except Exception:
+            pass
     
     language = language.lower().strip()
     
@@ -453,15 +462,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         code = event.get("code")
         test_suite = event.get("test_suite")
         
-        # Set environmental configurations as required by the task brief
-        if language is not None:
-            os.environ["LANGUAGE"] = str(language)
-        if code is not None:
-            os.environ["CODE"] = str(code)
-        if test_suite is not None:
-            os.environ["TEST_SUITE"] = str(test_suite)
+        # Set environmental configurations as required by the task brief, ensuring
+        # they are explicitly updated or cleared to prevent configuration leaks
+        # between warm Lambda starts.
+        os.environ["LANGUAGE"] = str(language) if language is not None else ""
+        os.environ["CODE"] = str(code) if code is not None else ""
+        os.environ["TEST_SUITE"] = str(test_suite) if test_suite is not None else ""
         if "timeout" in event and event["timeout"] is not None:
             os.environ["TIMEOUT_LIMIT"] = str(event["timeout"])
+        else:
+            os.environ.pop("TIMEOUT_LIMIT", None)
             
         lang_str = os.environ.get("LANGUAGE", "")
         code_str = os.environ.get("CODE", "")

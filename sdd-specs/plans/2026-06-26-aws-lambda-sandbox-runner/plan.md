@@ -37,7 +37,7 @@
 - Dependencies: Task 1.1
 
 ### Task 1.3: Update Dockerfile for AWS Lambda Container Runtime
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   * `sandbox-lambda/Dockerfile` (modify)

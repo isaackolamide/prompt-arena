@@ -107,7 +107,7 @@
 - Dependencies: Task 2.2
 
 ### Checkpoint — Phase 2
-- [ ] Backend client tests execute successfully and code coverage meets target criteria.
+- [x] Backend client tests execute successfully and code coverage meets target criteria.
 - Verification: Run `pytest backend/tests/unit/test_lambda_client.py`
 
 ---

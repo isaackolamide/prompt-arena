@@ -18,8 +18,8 @@ def test_settings_default_values():
             os.environ.pop(var, None)
             
         settings = Settings()
-        assert settings.AWS_ACCESS_KEY_ID == "mock-aws-access-key-id"
-        assert settings.AWS_SECRET_ACCESS_KEY == "mock-aws-secret-access-key"
+        assert settings.AWS_ACCESS_KEY_ID is None
+        assert settings.AWS_SECRET_ACCESS_KEY is None
         assert settings.AWS_REGION == "us-east-1"
         assert settings.AWS_LAMBDA_FUNCTION_NAME == "prompt-arena-sandbox"
         assert settings.AWS_LAMBDA_ENDPOINT_URL is None

@@ -16,8 +16,8 @@ class Settings(BaseModel):
     GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     
     # AWS Lambda Configuration
-    AWS_ACCESS_KEY_ID: str = Field(default_factory=lambda: os.getenv("AWS_ACCESS_KEY_ID", "mock-aws-access-key-id"))
-    AWS_SECRET_ACCESS_KEY: str = Field(default_factory=lambda: os.getenv("AWS_SECRET_ACCESS_KEY", "mock-aws-secret-access-key"))
+    AWS_ACCESS_KEY_ID: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_ACCESS_KEY_ID") or None)
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_SECRET_ACCESS_KEY") or None)
     AWS_REGION: str = Field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
     AWS_LAMBDA_FUNCTION_NAME: str = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_FUNCTION_NAME", "prompt-arena-sandbox"))
     AWS_LAMBDA_ENDPOINT_URL: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_ENDPOINT_URL") or None)

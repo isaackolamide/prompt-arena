@@ -143,7 +143,7 @@
 - Dependencies: Task 3.1
 
 ### Task 3.3: Create Lambda Function & IAM Roles
-- [ ] Task Completed
+- [x] Task Completed
 - Scope: S
 - Files:
   * `infra/lib/sandbox-stack.ts` (modify)

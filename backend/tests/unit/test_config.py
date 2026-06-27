@@ -41,3 +41,14 @@ def test_settings_from_env():
         assert settings.AWS_REGION == "us-west-2"
         assert settings.AWS_LAMBDA_FUNCTION_NAME == "test-sandbox-fn"
         assert settings.AWS_LAMBDA_ENDPOINT_URL == "http://localhost:4566"
+
+
+def test_settings_lambda_endpoint_empty_string():
+    """Test that empty string AWS_LAMBDA_ENDPOINT_URL is coerced to None."""
+    env_mock = {
+        "AWS_LAMBDA_ENDPOINT_URL": "",
+    }
+    with patch.dict(os.environ, env_mock):
+        settings = Settings()
+        assert settings.AWS_LAMBDA_ENDPOINT_URL is None
+

@@ -20,7 +20,7 @@ class Settings(BaseModel):
     AWS_SECRET_ACCESS_KEY: str = Field(default_factory=lambda: os.getenv("AWS_SECRET_ACCESS_KEY", "mock-aws-secret-access-key"))
     AWS_REGION: str = Field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
     AWS_LAMBDA_FUNCTION_NAME: str = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_FUNCTION_NAME", "prompt-arena-sandbox"))
-    AWS_LAMBDA_ENDPOINT_URL: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_ENDPOINT_URL", None))
+    AWS_LAMBDA_ENDPOINT_URL: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_ENDPOINT_URL") or None)
 
 settings = Settings()
 

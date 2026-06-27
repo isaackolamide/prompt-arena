@@ -16,26 +16,40 @@
 
 ## 3. Core User Journeys
 
-### Journey 1: Starting a Daily Challenge
-* **Pre-flight Check**: The player logs in using Magic Link or OTP authentication. The API checks the database to verify if the player has already played a challenge on the current calendar date. If they have, they are blocked and shown a "Daily Limit Reached" error.
-* **Session Initialization**: The player selects a challenge, chooses their preferred programming runtime (Python or Node.js/TypeScript), and clicks "Start". The server records a `started_at` timestamp, creates an active session in PostgreSQL, initializes the token budget, and redirects the player to the workspace.
+#### Journey 1: Starting a Daily Challenge
+* **Pre-flight Check**: The player logs in using Magic Link or OTP authentication. If this is their first sign-in (new account signup), the system forces them to select and save a unique, non-empty username before they can access any challenges.
+* **Daily Limit Verification**: The API checks the database to verify if the player has already played a challenge on the current calendar date (standardized to UTC). If they have, they are blocked and shown a "Daily Limit Reached" error.
+* **Session Initialization**: The player selects a challenge, chooses their preferred programming runtime (Python or Node.js/TypeScript), and clicks "Start". The server records a `started_at` timestamp, creates an active session in PostgreSQL, initializes the credit budget (e.g. 50,000 credits), binds the active version of the difficulty costing ruleset (`pricing_ruleset_id`), locks the targeted LLM model (e.g. `gemini-1.5-flash`) specified by the challenge configuration, and redirects the player to the workspace.
 
 ### Journey 2: Coding and Execution (The Sandbox)
 * **Writing Code**: The player edits a single solution file inside the Monaco editor.
 * **Running Tests**: The player types `run tests` in the simulated terminal. The frontend sends the code to the API. 
-* **Caching & Execution**: The API hashes the code and test suite. If an identical run exists in the cache, the API returns the cached output instantly. Otherwise, the API invokes the AWS Lambda sandbox container. The test runner compiles and runs the code within its strict resource limits, returning stdout/stderr and unit test passes/fails.
+* **Caching & Execution**: The API hashes the code and test suite. If an identical run exists in the cache, the API returns the cached output instantly via a standard HTTP JSON response. Otherwise, the API invokes the AWS Lambda sandbox container. The test runner compiles and runs the code within its strict resource limits, returning stdout/stderr and unit test passes/fails.
 
 ### Journey 3: Interacting with the Prompt Engine
-* **Prompting**: The player enters a prompt in the terminal to ask the LLM for assistance.
-* **Guardrails & Token Deduction**: The API intercepts the prompt, appends architectural guide system prompts (blocking direct code solutions), and routes it to the Gemini API. The response's token counts are calculated, deducted from the player's session budget, and logged in the event table. If the budget is exhausted ($0$), future prompts are immediately blocked.
+* **Prompting**: The player enters a prompt in the terminal to ask the LLM for assistance. The active target model is explicitly displayed in the workspace header (e.g. *"Powered by Gemini 1.5 Flash"*).
+* **Guardrails & Credit Deduction**: 
+  1. The API intercepts the prompt, appends architectural guide system prompts (blocking direct code solutions), and estimates the input tokens ($T_{\text{in}}$) offline.
+  2. The server calculates the available budget for output tokens ($C_{\text{out\_avail}}$) by subtracting the transaction fee and the weighted input cost:
+     $$C_{\text{out\_avail}} = C_{\text{rem}} - \text{Transaction\_Fee} - (T_{\text{in}} \times \text{Input\_Multiplier})$$
+     If $C_{\text{out\_avail}} \le 0$, the prompt is immediately blocked.
+  3. The server computes the maximum allowed output tokens:
+     $$T_{\text{out\_max}} = \lfloor \frac{C_{\text{out\_avail}}}{\text{Output\_Multiplier}} \rfloor$$
+  4. The request is routed to the Gemini API with the dynamic constraint `maxOutputTokens: T_{\text{out\_max}}` to prevent any wallet overrun.
+  5. The final prompt and response credits are deducted atomically from the player's session budget using the difficulty costing levels retrieved from the bound `pricing_ruleset_id` database record:
+     * **Easy Difficulty**: Input Multiplier = $2.0\times$, Output Multiplier = $6\times$, Flat Fee = $50$ Credits.
+     * **Medium Difficulty**: Input Multiplier = $2.5\times$, Output Multiplier = $8\times$, Flat Fee = $150$ Credits.
+     * **Hard Difficulty**: Input Multiplier = $3.0\times$, Output Multiplier = $10\times$, Flat Fee = $300$ Credits. *Special rule: Output tokens exceeding 150 cost $20\times$ credits.*
+  6. The spent credits, raw tokens, and prompt/response details are logged in the event table. If the budget reaches $0$, future prompts are blocked. During streaming, if the in-memory credits drop to 0, the SSE connection is cut off immediately.
 
 ### Journey 4: Session Termination & Scoring
-* **Completion**: The game ends when the player clicks "Submit", the 30-minute timer hits zero, or the token budget is exhausted.
+* **Completion**: The game ends when the player clicks "Submit", the 30-minute timer hits zero, or the credit budget is exhausted ($0$ credits remaining).
 * **Evaluation**: The backend runs a final, official test suite verification.
 * **Scorecard Generation**: The final scorecard is computed using:
   $$\text{Total Score} = \frac{\text{Correctness Score} + \text{Efficiency Score} + \text{Speed Score}}{3}$$
   * **Correctness**: Percentage of passed unit tests (0–100%).
-  * **Efficiency**: Percentage of remaining token budget (0–100%).
+  * **Efficiency**: Percentage of remaining credit budget (0–100%):
+    $$\text{Efficiency Score} = \left( \frac{\text{Remaining Credits}}{\text{Initial Credit Budget}} \right) \times 100$$
   * **Speed**: Percentage of remaining session time (0–100%).
 * **Finalization**: The session status is closed, and the player is shown their scorecard.
 
@@ -49,14 +63,14 @@
 ### Must Have
 * **Full-stack TypeScript Monorepo**: Shared typings and models between the React client and Fastify backend.
 * **Drizzle ORM Integration**: Type-safe database queries against PostgreSQL database (managed via Supabase).
-* **Strict Daily Limit Check**: Prevent more than 1 session per user per calendar day at the database constraint level.
+* **Strict Daily Limit Check**: Prevent more than 1 session per user per calendar day (UTC) at the database constraint level using a functional unique index or constraint.
 * **AWS Lambda Sandbox**: Execute Node.js and Python submissions in isolated Lambda environments with no network egress.
-* **LLM Proxy & Guardrails**: Enforce token limits and intercept Gemini prompts to insert anti-solution rules.
+* **LLM Proxy & Guardrails**: Enforce difficulty-based credit budgets, compute dynamic max output constraints, and intercept Gemini prompts to insert anti-solution rules.
 * **Zod Validation**: Unified Zod schemas to parse and validate request payloads.
-* **Hierarchical Score Tie-Breaking**: Leaderboard ranks ties based on Correctness first, then Efficiency, then Speed, and finally chronological submission timestamp.
+* **Hierarchical Score Tie-Breaking**: Leaderboard ranks ties based on Correctness first, then Efficiency (remaining credit percentage), then Speed, and finally chronological submission timestamp.
 
 ### Should Have
-* **Sandbox Execution Caching**: Cache executions by hashing `code + test_suite + runtime` to eliminate redundant Lambda execution fees and latency.
+* **Sandbox Execution Caching**: Cache executions by hashing `code + test_suite + runtime` to eliminate redundant Lambda execution fees and latency. Cached runs return standard HTTP JSON responses immediately (mocking execution state transitions via SSE is deferred as a future improvement).
 * **Event Logging (Replays)**: Log all prompts, replies, test logs, and code snapshots to the database to reconstruct the session history.
 * **Server-Sent Events (SSE)**: Stream terminal compile logs and LLM responses to the client using SSE instead of WebSockets.
 * **AWS Lambda RIE Local Emulation**: Run the Lambda container locally using RIE for 100% dev-prod environment parity.
@@ -85,23 +99,47 @@ The codebase must be structured as a **workspaces monorepo** (using `pnpm` or `n
   │
   ├── apps/
   │   ├── web/                    # React (TypeScript) + Vite frontend SPA
-  │   │   └── src/features/       # Grouped by domain (auth, challenge-arena, leaderboard)
+  │   │   └── src/
+  │   │       ├── components/     # Global shared UI elements (Button, Input, etc.)
+  │   │       └── features/       # Grouped by domain feature (auth, challenges, leaderboard)
+  │   │           └── challenges/
+  │   │               ├── components/  # Feature-specific subcomponents (CodeEditor.tsx)
+  │   │               ├── hooks/       # Feature-specific React hooks (useSandboxRunner.ts)
+  │   │               ├── services/    # Feature-specific HTTP/API clients
+  │   │               └── pages/       # Feature page layouts (ChallengeArenaPage.tsx)
+  │   │
   │   ├── api/                    # Node.js + Fastify backend API (TypeScript)
-  │   │   └── src/features/       # Domain features containing controllers, services, and schemas
-  │   └── sandbox/                # Code executor packaging for AWS Lambda
+  │   │   └── src/
+  │   │       └── features/       # Domain features containing all handlers, business logic, schemas
+  │   │           └── challenges/
+  │   │               ├── routes.ts    # Fastify route definitions
+  │   │               ├── handlers.ts  # Controllers / route entry points
+  │   │               ├── services.ts  # Core domain service logic
+  │   │               ├── repository.ts # Database queries specific to challenges
+  │   │               └── schemas.ts   # Local request validation configurations
+  │   │
+  │   └── sandbox/                # Code executor container package (Dockerized runner for Lambda)
   │
-  ├── packages/                   # Shared workspaces
-  │   ├── db/                     # Drizzle schema, SQL migrations, and PostgreSQL client
-  │   ├── types/                  # Shared Zod validation schemas, API DTO contracts, and types
+  ├── packages/                   # Shared monorepo packages
+  │   ├── db/                     # Drizzle schema, SQL migrations, and global connection client
+  │   ├── types/                  # Shared Zod schemas, payload definitions, and API DTO contracts
   │   └── config/                 # Shared configs (ESLint, TSConfig, Prettier)
   │
   ├── supabase/                   # Local Supabase config & seeds for local auth emulation
-  └── infra/                      # AWS CDK infrastructure definition
+  ├── infra/                      # AWS CDK infrastructure definition
+  └── scripts/                    # Shared automation, database seeding, and CI utility scripts
 ```
 
 #### Modularity & Coding Constraints
 * **Shared Types & DTO Contracts**: All payload shapes (requests, responses, event triggers) must be defined as Zod schemas inside `packages/types`. Both the `apps/api` and `apps/web` must import these schemas directly. If the backend changes a schema, the frontend build must fail at compile time.
-* **Database Isolation**: The database schema and connection clients must live exclusively in `packages/db`. No application (`apps/api` or other services) should define tables or write raw migrations; they must import `@prompt-arena/db`.
+* **Database Isolation**: The database schema and connection client initialization live exclusively in `packages/db`. No application (`apps/api` or other services) should write raw migrations or configure custom drivers; they must import `@prompt-arena/db`.
+* **Feature-Encapsulated Queries**: Database query/repository logic must live directly within its corresponding domain feature folder (e.g. `apps/api/src/features/challenges/repository.ts`) rather than in a global query package. Feature repositories access the database using the shared `@prompt-arena/db` client.
+* **Service Classes by Default**: Group domain actions inside cohesive service classes (e.g. `ChallengeService`) rather than introducing complex `Command` or `UseCase` files. Standalone use-case or command classes should only be created for highly complex, multi-step transaction pipelines (such as execution grading).
+* **Ports & Adapters for Infrastructure**: Interface boundaries (Ports) must only be defined for external infrastructure and third-party systems that vary across environments. Internal repository and database logic must mock concrete classes/drivers directly. The project defines exactly two major interfaces:
+  * `SandboxRunner`: Swappable between AWS Lambda execution (production), local Docker container execution (development), and mock test execution.
+  * `LlmProvider`: Swappable between live API calls (Gemini/OpenAI) and stub/mock providers for offline tests.
+* **Atomic Budget Updates**: The remaining credit budget must be tracked as a mutable column (`remaining_credits`) in the `game_sessions` table and updated atomically via SQL transactions to prevent concurrent requests from bypassing the budget.
+* **Versioned Pricing & Model Schemes**: Costing rules (multipliers, flat fees, progressive penalty tiers) must be stored in a `pricing_rulesets` database table. Each challenge configuration in the database must specify the targeted LLM model (e.g. `gemini-1.5-flash`). Each `game_sessions` record must maintain foreign keys to both the `pricing_ruleset_id` and the targeted model metadata configuration active at the time of game creation to guarantee historical playback integrity.
 * **Feature-Driven Folders**: Code in `apps/web` and `apps/api` must be grouped by domain features (e.g. `features/auth/`, `features/challenges/`) rather than functional layers (e.g. controllers, services, models). All code related to a single feature should live in one cohesive directory.
 
 ### Extensibility & Future-Proofing (AI/Python Evolution)
@@ -139,6 +177,6 @@ graph LR
 ---
 
 ## 7. Success Metrics
-* **100% Token Leakage Protection**: No user session can bypass its allocated token budget.
+* **100% Credit/Wallet Leakage Protection**: No user session can bypass its allocated credit budget, ensuring 0% financial overrun.
 * **Zero-Trust execution**: 0% of malicious user code submissions bypass the container sandbox to affect the host server or network.
 * **Fast Developer Bootstrapping**: A developer can clone the monorepo, run `make setup`, and start the entire stack locally in $\le 5\text{ minutes}$.

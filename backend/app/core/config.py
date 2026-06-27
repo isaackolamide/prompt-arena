@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Optional
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -13,6 +14,13 @@ class Settings(BaseModel):
     ENV: str = Field(default_factory=lambda: os.getenv("ENV", "development"))
     PORT: int = Field(default_factory=lambda: int(os.getenv("PORT", "8000")))
     GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
+    
+    # AWS Lambda Configuration
+    AWS_ACCESS_KEY_ID: str = Field(default_factory=lambda: os.getenv("AWS_ACCESS_KEY_ID", "mock-aws-access-key-id"))
+    AWS_SECRET_ACCESS_KEY: str = Field(default_factory=lambda: os.getenv("AWS_SECRET_ACCESS_KEY", "mock-aws-secret-access-key"))
+    AWS_REGION: str = Field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
+    AWS_LAMBDA_FUNCTION_NAME: str = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_FUNCTION_NAME", "prompt-arena-sandbox"))
+    AWS_LAMBDA_ENDPOINT_URL: Optional[str] = Field(default_factory=lambda: os.getenv("AWS_LAMBDA_ENDPOINT_URL", None))
 
 settings = Settings()
 
